@@ -146,6 +146,7 @@ export function describeWeather(code: number, isDay = true): Condition {
 
 const API_URL = 'https://api.weatherapi.com/v1';
 // The free WeatherAPI plan forecasts today and the two days after it; Open-Meteo covers the rest.
+// Without a WeatherAPI key, the hourly forecast from Open-Meteo spans the same days.
 const FORECAST_DAYS = 3;
 
 // WeatherAPI condition codes, translated to the WMO codes the rest of the app speaks.
@@ -212,9 +213,9 @@ function astroTime(time: string): string | null {
   return `${String(hour).padStart(2, '0')}:${match[2]}`;
 }
 
-async function request(endpoint: string, place: Place, params: string): Promise<any> {
+async function request(apiKey: string, endpoint: string, place: Place, params: string): Promise<any> {
   const response = await fetch(
-    `${API_URL}/${endpoint}.json?key=${process.env.EXPO_PUBLIC_WEATHERAPI_KEY}` +
+    `${API_URL}/${endpoint}.json?key=${encodeURIComponent(apiKey)}` +
       `&q=${place.latitude},${place.longitude}&${params}`,
   );
   if (!response.ok) {
@@ -222,6 +223,19 @@ async function request(endpoint: string, place: Place, params: string): Promise<
   }
   return response.json();
 }
+
+const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
+
+const CURRENT_FIELDS = ['temperature_2m', 'weather_code', 'is_day', 'wind_speed_10m'].join(',');
+
+const HOURLY_FIELDS = [
+  'weather_code',
+  'is_day',
+  'temperature_2m',
+  'wind_speed_10m',
+  'precipitation_probability',
+  'precipitation',
+].join(',');
 
 const DAILY_FIELDS = [
   'weather_code',
@@ -235,41 +249,76 @@ const DAILY_FIELDS = [
   'sunset',
 ].join(',');
 
-/** Yesterday, today and the six days after, from Open-Meteo. */
-async function fetchExtendedDays(place: Place): Promise<Pick<Weather, 'days' | 'utcOffsetSeconds'>> {
+async function openMeteo(place: Place, params: string): Promise<any> {
   const response = await fetch(
-    'https://api.open-meteo.com/v1/forecast' +
-      `?latitude=${place.latitude}&longitude=${place.longitude}` +
-      `&daily=${DAILY_FIELDS}` +
-      '&timezone=auto&forecast_days=7&past_days=1',
+    `${OPEN_METEO_URL}?latitude=${place.latitude}&longitude=${place.longitude}&timezone=auto&${params}`,
   );
   if (!response.ok) {
     throw new Error(`Weather service returned ${response.status}`);
   }
-  const data = await response.json();
-  const daily = data.daily;
+  return response.json();
+}
+
+/** Current conditions, the hours ahead, and yesterday through the six days after today, from Open-Meteo. */
+async function fetchOpenMeteoWeather(place: Place): Promise<Weather> {
+  const data = await openMeteo(
+    place,
+    `current=${CURRENT_FIELDS}&hourly=${HOURLY_FIELDS}&daily=${DAILY_FIELDS}&forecast_days=7&past_days=1`,
+  );
+  const { current, hourly, daily } = data;
+
+  const days: DayForecast[] = daily.time.map((date: string, i: number) => ({
+    date,
+    code: daily.weather_code[i],
+    high: daily.temperature_2m_max[i],
+    low: daily.temperature_2m_min[i],
+    precipitationMm: daily.precipitation_sum[i] ?? 0,
+    sunshineHours: (daily.sunshine_duration[i] ?? 0) / 3600,
+    windKmh: daily.wind_speed_10m_max[i],
+    windFromDegrees: daily.wind_direction_10m_dominant[i],
+    sunrise: daily.sunrise[i],
+    sunset: daily.sunset[i],
+  }));
+
+  // From the current hour to the end of the last of the FORECAST_DAYS, the same span WeatherAPI gives.
+  const currentHour = `${current.time.slice(0, 13)}:00`;
+  const today = days.findIndex((day) => day.date === currentHour.slice(0, 10));
+  const lastDate = days[today + FORECAST_DAYS - 1]?.date ?? days[days.length - 1].date;
+  const hours: HourForecast[] = [];
+  hourly.time.forEach((time: string, i: number) => {
+    if (time < currentHour || time.slice(0, 10) > lastDate) return;
+    hours.push({
+      time,
+      code: hourly.weather_code[i],
+      isDay: hourly.is_day[i] === 1,
+      temperature: hourly.temperature_2m[i],
+      windKmh: hourly.wind_speed_10m[i],
+      precipitationChance: hourly.precipitation_probability[i] ?? 0,
+      precipitationMm: hourly.precipitation[i] ?? 0,
+    });
+  });
 
   return {
+    temperature: current.temperature_2m,
+    code: current.weather_code,
+    isDay: current.is_day === 1,
+    windKmh: current.wind_speed_10m,
     utcOffsetSeconds: data.utc_offset_seconds,
-    days: daily.time.map((date: string, i: number) => ({
-      date,
-      code: daily.weather_code[i],
-      high: daily.temperature_2m_max[i],
-      low: daily.temperature_2m_min[i],
-      precipitationMm: daily.precipitation_sum[i] ?? 0,
-      sunshineHours: (daily.sunshine_duration[i] ?? 0) / 3600,
-      windKmh: daily.wind_speed_10m_max[i],
-      windFromDegrees: daily.wind_direction_10m_dominant[i],
-      sunrise: daily.sunrise[i],
-      sunset: daily.sunset[i],
-    })),
+    hours,
+    days,
   };
 }
 
-export async function fetchWeather(place: Place): Promise<Weather> {
+/**
+ * Open-Meteo's weather; or, given the user's own WeatherAPI key, WeatherAPI's for now, the hours
+ * ahead and the near days, with Open-Meteo's for the rest.
+ */
+export async function fetchWeather(place: Place, apiKey: string): Promise<Weather> {
+  if (!apiKey) return fetchOpenMeteoWeather(place);
+
   const [data, extended] = await Promise.all([
-    request('forecast', place, `days=${FORECAST_DAYS}&aqi=no&alerts=no`),
-    fetchExtendedDays(place),
+    request(apiKey, 'forecast', place, `days=${FORECAST_DAYS}&aqi=no&alerts=no`),
+    fetchOpenMeteoWeather(place),
   ]);
   const forecastDays = data.forecast.forecastday;
 
@@ -320,8 +369,22 @@ export type PlaceSummary = {
 };
 
 /** Current conditions and today's high and low, for the locations list. */
-export async function fetchPlaceSummary(place: Place): Promise<PlaceSummary> {
-  const data = await request('forecast', place, 'days=1&aqi=no&alerts=no');
+export async function fetchPlaceSummary(place: Place, apiKey: string): Promise<PlaceSummary> {
+  if (!apiKey) {
+    const data = await openMeteo(
+      place,
+      'current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1',
+    );
+    return {
+      temperature: data.current.temperature_2m,
+      code: data.current.weather_code,
+      isDay: data.current.is_day === 1,
+      high: data.daily.temperature_2m_max[0],
+      low: data.daily.temperature_2m_min[0],
+    };
+  }
+
+  const data = await request(apiKey, 'forecast', place, 'days=1&aqi=no&alerts=no');
   const today = data.forecast.forecastday[0].day;
 
   return {
@@ -331,4 +394,13 @@ export async function fetchPlaceSummary(place: Place): Promise<PlaceSummary> {
     high: today.maxtemp_c,
     low: today.mintemp_c,
   };
+}
+
+/** Whether WeatherAPI accepts a key. Rejects when the service cannot be reached. */
+export async function isWeatherApiKeyValid(apiKey: string): Promise<boolean> {
+  const response = await fetch(`${API_URL}/current.json?key=${encodeURIComponent(apiKey)}&q=London`);
+  // WeatherAPI answers 401 for an unknown key and 403 for a disabled one or one over its quota.
+  if (response.status === 401 || response.status === 403) return false;
+  if (!response.ok) throw new Error(`Weather service returned ${response.status}`);
+  return true;
 }

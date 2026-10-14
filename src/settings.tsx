@@ -10,6 +10,8 @@ export type Settings = {
   precipitationUnit: 'mm' | 'inch';
   /** Cached weather older than this many days is deleted. */
   cacheDays: 1 | 3 | 7 | 'never';
+  /** The user's own WeatherAPI key; empty to use Open-Meteo alone. */
+  weatherApiKey: string;
 };
 
 export type UnitSystem = Pick<Settings, 'temperatureUnit' | 'windUnit' | 'precipitationUnit'>;
@@ -25,7 +27,7 @@ export function usesSystem(settings: Settings, system: UnitSystem) {
   );
 }
 
-const DEFAULT_SETTINGS: Settings = { ...METRIC, showBothTemperatures: false, cacheDays: 3 };
+const DEFAULT_SETTINGS: Settings = { ...METRIC, showBothTemperatures: false, cacheDays: 3, weatherApiKey: '' };
 
 const STORAGE_KEY = 'settings';
 

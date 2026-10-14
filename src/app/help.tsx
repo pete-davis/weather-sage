@@ -36,7 +36,7 @@ const TOPICS: Topic[] = [
     icon: 'today',
     title: 'Day details',
     points: [
-      'Each day has its own page with an hourly forecast, sunrise and sunset, and the moon’s phase, moonrise and moonset, and the date of the next full moon.',
+      'Each day has its own page with an hourly forecast, sunrise and sunset, the moon’s phase, and the date of the next full moon. Moonrise and moonset show for the next three days when you add a WeatherAPI key in Settings.',
     ],
   },
   {
@@ -55,6 +55,7 @@ const TOPICS: Topic[] = [
       'Switch all units between metric and imperial at once, or choose temperature, wind and precipitation units separately.',
       'Turn on “Show both °C and °F” to see the other temperature unit as well.',
       'Choose how long cached weather is kept for offline use.',
+      'The weather comes from Open-Meteo by default. Add your own free WeatherAPI key under “Weather service” to use WeatherAPI for the next three days.',
     ],
   },
   {

@@ -38,15 +38,15 @@ function LocationRow({ place, caption, selected, onPress }: LocationRowProps) {
     let cancelled = false;
     setSummary(null);
     setFailed(false);
-    fetchPlaceSummary(place)
+    fetchPlaceSummary(place, settings.weatherApiKey)
       .then((result) => !cancelled && setSummary(result))
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
     };
-    // Refetch only when the position changes, not on every new object.
+    // Refetch only when the position or the weather service changes, not on every new object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, settings.weatherApiKey]);
 
   const condition = summary && describeWeather(summary.code, summary.isDay);
   const unit = settings.temperatureUnit;

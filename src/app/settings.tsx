@@ -1,9 +1,11 @@
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { IMPERIAL, METRIC, useSettings, usesSystem, type Settings, type UnitSystem } from '@/settings';
 import { Palette } from '@/theme';
+import { isWeatherApiKeyValid } from '@/weather';
 
 type SegmentsProps<T extends string | number> = {
   title: string;
@@ -53,6 +55,102 @@ function UnitChoice<K extends keyof UnitSystem>({ title, setting, options }: Uni
       selected={settings[setting]}
       onSelect={(value) => updateSettings({ [setting]: value })}
     />
+  );
+}
+
+type KeyStatus = 'checking' | 'invalid' | 'unreachable' | null;
+
+const KEY_STATUS_TEXT: Record<Exclude<KeyStatus, null>, string> = {
+  checking: 'Checking the key…',
+  invalid: 'WeatherAPI did not accept this key.',
+  unreachable: 'Could not reach WeatherAPI to check the key. Check your connection.',
+};
+
+function WeatherApiKey() {
+  const { settings, updateSettings } = useSettings();
+  const [draft, setDraft] = useState(settings.weatherApiKey);
+  const [status, setStatus] = useState<KeyStatus>(null);
+  const key = draft.trim();
+  const saved = settings.weatherApiKey;
+
+  // A key is saved only once WeatherAPI accepts it, so a typo cannot leave the app without weather.
+  async function save() {
+    if (!key || key === saved) return;
+    setStatus('checking');
+    try {
+      if (!(await isWeatherApiKeyValid(key))) {
+        setStatus('invalid');
+        return;
+      }
+      updateSettings({ weatherApiKey: key });
+      setStatus(null);
+    } catch {
+      setStatus('unreachable');
+    }
+  }
+
+  function remove() {
+    setDraft('');
+    setStatus(null);
+    updateSettings({ weatherApiKey: '' });
+  }
+
+  return (
+    <View style={[styles.card, styles.cardStacked]}>
+      <Text style={styles.cardTitle}>WeatherAPI key</Text>
+      <Text style={styles.cardDetail}>
+        {saved
+          ? 'Today and the next two days come from WeatherAPI with your key, including moonrise and moonset. Later days come from Open-Meteo.'
+          : 'The weather comes from Open-Meteo, which is free and needs no key. To use WeatherAPI for today and the next two days, and to see moonrise and moonset, add your own key from weatherapi.com.'}
+      </Text>
+      <TextInput
+        style={styles.input}
+        value={draft}
+        onChangeText={(text) => {
+          setDraft(text);
+          setStatus(null);
+        }}
+        onSubmitEditing={save}
+        placeholder="Paste your key"
+        placeholderTextColor={Palette.textMuted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        spellCheck={false}
+        returnKeyType="done"
+      />
+      {status && (
+        <Text style={[styles.cardDetail, status !== 'checking' && styles.error]}>{KEY_STATUS_TEXT[status]}</Text>
+      )}
+      <View style={styles.options}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !key || key === saved || status === 'checking' }}
+          disabled={!key || key === saved || status === 'checking'}
+          style={({ pressed }) => [
+            styles.option,
+            styles.optionStacked,
+            styles.optionSelected,
+            (!key || key === saved) && styles.optionDisabled,
+            pressed && styles.optionPressed,
+          ]}
+          onPress={save}>
+          <Text style={[styles.optionText, styles.optionTextSelected]}>{key && key === saved ? 'Saved' : 'Save'}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !saved && !draft }}
+          disabled={!saved && !draft}
+          style={({ pressed }) => [
+            styles.option,
+            styles.optionStacked,
+            !saved && !draft && styles.optionDisabled,
+            pressed && styles.optionPressed,
+          ]}
+          onPress={remove}>
+          <Text style={styles.optionText}>Remove</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -124,6 +222,9 @@ export default function SettingsScreen() {
           selected={settings.cacheDays}
           onSelect={(value) => updateSettings({ cacheDays: value })}
         />
+
+        <Text style={styles.section}>Weather service</Text>
+        <WeatherApiKey />
       </ScrollView>
     </SafeAreaView>
   );
@@ -167,6 +268,23 @@ const styles = StyleSheet.create({
     color: Palette.text,
     fontSize: 17,
   },
+  cardDetail: {
+    color: Palette.textMuted,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  error: {
+    color: '#FF9F2E',
+  },
+  input: {
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Palette.textMuted,
+    paddingHorizontal: 12,
+    color: Palette.text,
+    fontSize: 16,
+  },
   options: {
     flexDirection: 'row',
     gap: 6,
@@ -188,6 +306,12 @@ const styles = StyleSheet.create({
   optionSelected: {
     backgroundColor: Palette.text,
     borderColor: Palette.text,
+  },
+  optionDisabled: {
+    opacity: 0.4,
+  },
+  optionPressed: {
+    opacity: 0.7,
   },
   optionText: {
     color: Palette.text,

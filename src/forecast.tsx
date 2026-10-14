@@ -46,7 +46,7 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
     if (!place) return;
     setLoading(true);
     try {
-      const fresh = await fetchWeather(place);
+      const fresh = await fetchWeather(place, settings.weatherApiKey);
       freshKey.current = key;
       setWeather(fresh);
       setUpdatedAt(Date.now());
@@ -60,9 +60,9 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-    // Reload only when the position changes, not on every new place object.
+    // Reload only when the position or the weather service changes, not on every new place object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, settings.weatherApiKey]);
 
   // Another place's weather must not linger under the new place's name. The place's own cached
   // weather stands in until the fresh weather arrives.
@@ -83,7 +83,7 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
     return () => {
       current = false;
     };
-    // load changes exactly when the position does.
+    // load changes exactly when the position or the weather service does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 

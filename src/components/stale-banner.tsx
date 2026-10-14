@@ -7,7 +7,7 @@ import { Palette } from '@/theme';
 export function StaleBanner({ offline }: { offline: boolean }) {
   return (
     <View style={styles.banner} accessibilityRole="alert">
-      <MaterialIcons name={offline ? 'cloud-off' : 'error-outline'} size={20} color={Palette.header} />
+      <MaterialIcons name={offline ? 'cloud-off' : 'error-outline'} size={20} color={Palette.ink} />
       <Text style={styles.text}>{offline ? 'Offline' : 'Update failed'} – using cached data</Text>
     </View>
   );
@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   text: {
-    color: Palette.header,
+    color: Palette.ink,
     fontSize: 15,
     fontWeight: '700',
   },

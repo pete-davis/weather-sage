@@ -7,6 +7,7 @@ import { weekdayOf } from '@/components/forecast-row';
 import { HourlyForecast } from '@/components/hourly-forecast';
 import { HourlyPrecipitation } from '@/components/hourly-precipitation';
 import { ScreenHeader } from '@/components/screen-header';
+import { SkyBackground } from '@/components/sky-background';
 import { StaleBanner } from '@/components/stale-banner';
 import { SunArc } from '@/components/sun-arc';
 import { WeatherIcon } from '@/components/weather-icon';
@@ -106,6 +107,7 @@ export default function DayScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <SkyBackground />
       <ScreenHeader title={title} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

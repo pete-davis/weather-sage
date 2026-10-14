@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
+import { SkyBackground } from '@/components/sky-background';
 import { WeatherIcon } from '@/components/weather-icon';
 import { useLocations } from '@/locations';
 import { useSettings } from '@/settings';
@@ -103,6 +104,7 @@ export default function LocationsScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <SkyBackground />
       <ScreenHeader
         title="Locations"
         action={{ icon: 'add', label: 'Add a location', onPress: () => router.push('/add-location') }}
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.card,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: Palette.card,
+    borderColor: 'transparent',
     paddingVertical: 10,
     paddingHorizontal: 14,
   },

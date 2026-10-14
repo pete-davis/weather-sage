@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
+import { SkyBackground } from '@/components/sky-background';
 import { searchPlaces } from '@/location';
 import { useLocations } from '@/locations';
 import { Palette } from '@/theme';
@@ -49,6 +50,7 @@ export default function AddLocationScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <SkyBackground />
       <ScreenHeader title="Add location" />
 
       <ScrollView

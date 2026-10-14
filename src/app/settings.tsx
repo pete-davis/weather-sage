@@ -3,6 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, V
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
+import { SkyBackground } from '@/components/sky-background';
 import { IMPERIAL, METRIC, useSettings, usesSystem, type Settings, type UnitSystem } from '@/settings';
 import { Palette } from '@/theme';
 import { isWeatherApiKeyValid } from '@/weather';
@@ -173,6 +174,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <SkyBackground />
       <ScreenHeader title="Settings" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -359,7 +361,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   optionTextSelected: {
-    color: Palette.card,
+    color: Palette.ink,
     fontWeight: '600',
   },
 });

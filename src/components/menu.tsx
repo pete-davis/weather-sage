@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     minWidth: 180,
     paddingVertical: 4,
-    backgroundColor: Palette.header,
+    backgroundColor: Palette.headerSolid,
     borderBottomLeftRadius: 2,
     borderBottomRightRadius: 2,
     elevation: 8,

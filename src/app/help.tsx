@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
+import { SkyBackground } from '@/components/sky-background';
 import { Palette } from '@/theme';
 
 type Topic = {
@@ -71,6 +72,7 @@ const TOPICS: Topic[] = [
 export default function HelpScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <SkyBackground />
       <ScreenHeader title="Help" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

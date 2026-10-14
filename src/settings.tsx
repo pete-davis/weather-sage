@@ -27,7 +27,7 @@ export function usesSystem(settings: Settings, system: UnitSystem) {
   );
 }
 
-const DEFAULT_SETTINGS: Settings = { ...METRIC, showBothTemperatures: false, cacheDays: 3, weatherApiKey: '' };
+const DEFAULT_SETTINGS: Settings = { ...IMPERIAL, showBothTemperatures: false, cacheDays: 3, weatherApiKey: '' };
 
 const STORAGE_KEY = 'settings';
 

@@ -16,7 +16,7 @@ import { useLocations } from '@/locations';
 import { useSettings } from '@/settings';
 import { Palette } from '@/theme';
 import { TEMPERATURE_LABELS, formatWind, otherTemperatureUnit, temperatureValue } from '@/units';
-import { TRACE_MM, describeWeather, isPrecipitation, localDates } from '@/weather';
+import { TRACE_MM, describeWeather, isPrecipitation, localDates, placeKey, type Place } from '@/weather';
 
 const MAX_CONTENT_WIDTH = 480;
 const SECTION_GAP = 20;
@@ -45,6 +45,13 @@ function HeaderButton({ icon, label, onPress }: HeaderButtonProps) {
   );
 }
 
+/** The same spot, or the same town by name, as a saved town and a position in it rarely match exactly. */
+function samePlace(a: Place | null, b: Place) {
+  if (!a) return false;
+  if (placeKey(a) === placeKey(b)) return true;
+  return a.name === b.name && (a.region ?? '') === (b.region ?? '') && (a.country ?? '') === (b.country ?? '');
+}
+
 function plural(count: number, unit: string) {
   return `${count} ${unit}${count === 1 ? '' : 's'} ago`;
 }
@@ -62,7 +69,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [iconColumnWidth, setIconColumnWidth] = useState(MIN_ICON_COLUMN);
-  const { place, locationFailed, selectPlace } = useLocations();
+  const { place, selectedKey, currentPlace, locationFailed, selectPlace } = useLocations();
+  // Going to the device's location is offered only when the screen shows somewhere else, or when
+  // the location could not be read and is worth asking for again.
+  const showsCurrentPlace =
+    !locationFailed && (selectedKey === null || (currentPlace !== null && samePlace(place, currentPlace)));
   const { weather, updatedAt, loading, error, offline, load } = useForecast();
   const now = useNow();
   const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +107,9 @@ export default function HomeScreen() {
         <Text style={styles.title} numberOfLines={1}>
           {place?.name ?? (locationFailed ? '' : 'Locating…')}
         </Text>
-        <HeaderButton icon="my-location" label="Use my location" onPress={() => selectPlace(null)} />
+        {!showsCurrentPlace && (
+          <HeaderButton icon="my-location" label="Use my location" onPress={() => selectPlace(null)} />
+        )}
       </View>
 
       <ScrollView

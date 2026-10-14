@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { weekdayOf } from '@/components/forecast-row';
@@ -76,8 +76,9 @@ function Detail({ icon, label, children }: { icon: ReactNode; label: string; chi
 export default function DayScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const { settings } = useSettings();
-  const { place } = useLocations();
-  const { weather, error, offline } = useForecast();
+  const router = useRouter();
+  const { place, locationFailed } = useLocations();
+  const { weather, error, offline, load } = useForecast();
   const now = useNow();
 
   const dates = weather ? localDates(weather, now) : null;
@@ -110,7 +111,23 @@ export default function DayScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {weather && error && <StaleBanner offline={offline} />}
 
-        {!weather ? (
+        {/* Opened from a link, this may be the first screen shown, so it needs the home screen's way out
+            when there is no weather to wait for. */}
+        {!weather && error ? (
+          <View style={styles.status}>
+            <Text style={styles.statusLine}>{error}</Text>
+            <Pressable accessibilityRole="button" onPress={load} style={styles.button}>
+              <Text style={styles.buttonText}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : !weather && !place && locationFailed ? (
+          <View style={styles.status}>
+            <Text style={styles.statusLine}>Your location is unavailable.</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/locations')} style={styles.button}>
+              <Text style={styles.buttonText}>Choose a location</Text>
+            </Pressable>
+          </View>
+        ) : !weather ? (
           <View style={styles.status}>
             <ActivityIndicator size="large" color={Palette.text} />
           </View>
@@ -376,6 +393,23 @@ const styles = StyleSheet.create({
   },
   status: {
     alignItems: 'center',
+    gap: 16,
     paddingTop: 96,
+  },
+  statusLine: {
+    color: Palette.text,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  button: {
+    backgroundColor: Palette.card,
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  buttonText: {
+    color: Palette.text,
+    fontSize: 16,
   },
 });

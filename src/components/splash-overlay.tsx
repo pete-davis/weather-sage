@@ -10,8 +10,7 @@ import { Palette } from '@/theme';
 const HOLD = false;
 const SHOW_MS = 3000;
 const FADE_MS = 400;
-// Shown again for a reload, it fades in quickly and stays at least this long, so it does not flash.
-const RELOAD_FADE_IN_MS = 200;
+// Shown again for a reload, it stays at least this long, so it does not flash.
 const RELOAD_MIN_MS = 1500;
 // splash-art.png is the icon's artwork without its tile, centred on a square transparent canvas.
 const MAX_ART_SIZE = 380;
@@ -55,10 +54,11 @@ export function SplashProvider({ children }: { children: ReactNode }) {
   const cover = useCallback(
     async (work: () => Promise<unknown>) => {
       if (launchTimer.current) clearTimeout(launchTimer.current);
+      // Fully there at once, so nothing on the screen below shows through as it arrives.
       opacity.stopAnimation();
+      opacity.setValue(1);
       setShown(true);
       setFading(false);
-      Animated.timing(opacity, { toValue: 1, duration: RELOAD_FADE_IN_MS, useNativeDriver: true }).start();
       try {
         await Promise.all([work(), wait(RELOAD_MIN_MS)]);
       } finally {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, RefreshControl, ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
+import { Platform, RefreshControl, ScrollView, type ScrollViewProps } from 'react-native';
 
 import { Palette } from '@/theme';
 
@@ -24,7 +24,9 @@ export function RefreshableScrollView({ refreshing, onRefresh, children, ...prop
     return (
       <ScrollView
         {...props}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Palette.text} />}>
+        // Never shown as refreshing: the platform's spinner lets go at once, and the reload has its
+        // own cover, the splash.
+        refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={Palette.text} />}>
         {children}
       </ScrollView>
     );
@@ -91,39 +93,11 @@ function WebPullToRefresh({ refreshing, onRefresh, children, style, ...props }: 
     };
   }, []);
 
-  // While reloading, the spinner holds the space a full pull opened.
-  const offset = refreshing ? PULL_TO_REFRESH : pull;
-  const ready = pull >= PULL_TO_REFRESH;
-
+  // The screen following the finger down is the only sign of the pull; letting go hands over to
+  // the reload's own cover, the splash.
   return (
-    <View style={styles.container}>
-      {offset > 0 && (
-        <View style={[styles.indicator, { height: offset }]} pointerEvents="none">
-          <ActivityIndicator
-            color={Palette.text}
-            animating={refreshing || ready}
-            hidesWhenStopped={false}
-            style={{ opacity: refreshing ? 1 : Math.min(1, pull / PULL_TO_REFRESH) }}
-          />
-        </View>
-      )}
-      <ScrollView ref={scrollView} {...props} style={[style, offset > 0 && { transform: [{ translateY: offset }] }]}>
-        {children}
-      </ScrollView>
-    </View>
+    <ScrollView ref={scrollView} {...props} style={[style, pull > 0 && { transform: [{ translateY: pull }] }]}>
+      {children}
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  indicator: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

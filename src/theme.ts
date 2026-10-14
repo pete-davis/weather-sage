@@ -1,3 +1,6 @@
+/** Space between a card's edges and its contents, on the left and right, for every card in the app. */
+export const CARD_PADDING = 16;
+
 export const Palette = {
   // The bottom of SkyGradient, shown wherever the gradient is not drawn.
   background: '#022063',

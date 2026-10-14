@@ -7,7 +7,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { SkyBackground } from '@/components/sky-background';
 import { searchPlaces } from '@/location';
 import { useLocations } from '@/locations';
-import { Palette } from '@/theme';
+import { CARD_PADDING, Palette } from '@/theme';
 import { placeKey, placeRegion, type Place } from '@/weather';
 
 const SEARCH_DELAY_MS = 350;
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.card,
     borderRadius: 16,
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: CARD_PADDING,
   },
   resultPressed: {
     opacity: 0.8,

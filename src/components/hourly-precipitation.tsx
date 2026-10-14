@@ -1,8 +1,8 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { hourLabel } from '@/components/hourly-forecast';
+import { HOUR_GAP, hourLabel } from '@/components/hourly-forecast';
 import { useSettings } from '@/settings';
-import { Palette } from '@/theme';
+import { CARD_PADDING, Palette } from '@/theme';
 import { formatPrecipitation } from '@/units';
 import type { HourForecast } from '@/weather';
 
@@ -17,12 +17,17 @@ export function HourlyPrecipitation({ hours, startsNow = true }: { hours: HourFo
 
   return (
     <View style={styles.card}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hours}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.hours}
+        contentContainerStyle={styles.hoursContent}>
         {hours.map((hour, index) => (
           <View key={hour.time} style={styles.hour}>
             <Text style={styles.time}>{index === 0 && startsNow ? 'Now' : hourLabel(hour.time)}</Text>
             <View style={styles.chart}>
-              {/* Each column draws its stretch of the gridlines; side by side they run the chart's width. */}
+              {/* Each column draws its stretch of the gridlines, reaching half a gap either side, so that
+                  side by side they run the chart's width. */}
               <View style={[styles.gridline, { top: 0 }]} />
               <View style={[styles.gridline, { top: BAR_HEIGHT / 2 }]} />
               <View style={[styles.gridline, { bottom: 0 }]} />
@@ -42,12 +47,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 12,
   },
-  // Margin rather than content padding, so the hours clip at the inset instead of the card edge.
+  // Margin rather than content padding, so the hours clip where the card's text ends as they scroll.
   hours: {
-    marginHorizontal: 14,
+    marginHorizontal: CARD_PADDING,
+  },
+  hoursContent: {
+    gap: HOUR_GAP,
   },
   hour: {
-    width: 62,
     alignItems: 'center',
     gap: 3,
   },
@@ -65,8 +72,8 @@ const styles = StyleSheet.create({
   },
   gridline: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: -HOUR_GAP / 2,
+    right: -HOUR_GAP / 2,
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },

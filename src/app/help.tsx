@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { SkyBackground } from '@/components/sky-background';
-import { Palette } from '@/theme';
+import { CARD_PADDING, Palette } from '@/theme';
 
 type Topic = {
   icon: ComponentProps<typeof MaterialIcons>['name'];
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.card,
     borderRadius: 16,
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: CARD_PADDING,
   },
   cardHeader: {
     flexDirection: 'row',

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { WeatherIcon } from '@/components/weather-icon';
 import { useSettings } from '@/settings';
-import { Palette, temperatureColor } from '@/theme';
+import { CARD_PADDING, Palette, temperatureColor } from '@/theme';
 import {
   TEMPERATURE_LABELS,
   formatPrecipitation,
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.card,
     borderRadius: 16,
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: CARD_PADDING,
   },
   rowPressed: {
     opacity: 0.7,

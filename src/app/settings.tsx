@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/screen-header';
 import { SkyBackground } from '@/components/sky-background';
 import { IMPERIAL, METRIC, useSettings, usesSystem, type Settings, type UnitSystem } from '@/settings';
-import { Palette } from '@/theme';
+import { CARD_PADDING, Palette } from '@/theme';
 import { isWeatherApiKeyValid } from '@/weather';
 
 type SegmentsProps<T extends string | number> = {
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.card,
     borderRadius: 16,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: CARD_PADDING,
   },
   cardStacked: {
     flexDirection: 'column',

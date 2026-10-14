@@ -2,11 +2,15 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { WeatherIcon } from '@/components/weather-icon';
 import { useSettings, type Settings } from '@/settings';
-import { Palette } from '@/theme';
+import { CARD_PADDING, Palette } from '@/theme';
 import { TEMPERATURE_LABELS, formatWind, otherTemperatureUnit, temperatureValue } from '@/units';
 import { describeWeather, type HourForecast } from '@/weather';
 
 const RAIN_WORTH_MENTIONING = 30;
+// Each hour's column is only as wide as its widest line, so the first hour starts exactly where the
+// card's text does and the last ends where it ends; the hours are kept apart by this gap alone. Shared
+// with the precipitation chart.
+export const HOUR_GAP = 16;
 
 // "2026-10-12T17:00" -> "5pm"
 export function hourLabel(time: string) {
@@ -58,7 +62,11 @@ export function HourlyForecast({ hours, startsNow = true }: HourlyForecastProps)
     <View style={styles.card}>
       <Text style={styles.summary}>{summarize(hours, settings.temperatureUnit, startsNow)}</Text>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hours}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.hours}
+        contentContainerStyle={styles.hoursContent}>
         {hours.map((hour, index) => {
           const condition = describeWeather(hour.code, hour.isDay);
           return (
@@ -95,15 +103,17 @@ const styles = StyleSheet.create({
     color: Palette.text,
     fontSize: 14,
     lineHeight: 20,
-    paddingHorizontal: 14,
+    paddingHorizontal: CARD_PADDING,
     marginBottom: 10,
   },
-  // Margin rather than content padding, so the hours clip at the inset instead of the card edge.
+  // Margin rather than content padding, so the hours clip where the card's text ends as they scroll.
   hours: {
-    marginHorizontal: 14,
+    marginHorizontal: CARD_PADDING,
+  },
+  hoursContent: {
+    gap: HOUR_GAP,
   },
   hour: {
-    width: 62,
     alignItems: 'center',
     gap: 3,
   },

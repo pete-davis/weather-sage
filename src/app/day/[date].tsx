@@ -15,7 +15,7 @@ import { useForecast, useNow } from '@/forecast';
 import { useLocations } from '@/locations';
 import { moonPhase, nextFullMoon } from '@/moon';
 import { useSettings } from '@/settings';
-import { Palette, temperatureColor } from '@/theme';
+import { CARD_PADDING, Palette, temperatureColor } from '@/theme';
 import {
   TEMPERATURE_LABELS,
   clockTime,
@@ -279,7 +279,8 @@ const styles = StyleSheet.create({
     gap: 20,
     backgroundColor: Palette.card,
     borderRadius: 16,
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: CARD_PADDING,
   },
   summaryIcon: {
     lineHeight: 88,
@@ -347,7 +348,8 @@ const styles = StyleSheet.create({
     gap: 14,
     backgroundColor: Palette.card,
     borderRadius: 16,
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: CARD_PADDING,
   },
   moonPhase: {
     flexDirection: 'row',

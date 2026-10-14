@@ -8,7 +8,7 @@ import { SkyBackground } from '@/components/sky-background';
 import { WeatherIcon } from '@/components/weather-icon';
 import { useLocations } from '@/locations';
 import { useSettings } from '@/settings';
-import { Palette, temperatureColor } from '@/theme';
+import { CARD_PADDING, Palette, temperatureColor } from '@/theme';
 import { temperatureValue } from '@/units';
 import {
   describeWeather,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: CARD_PADDING,
   },
   rowSelected: {
     borderColor: Palette.rain,

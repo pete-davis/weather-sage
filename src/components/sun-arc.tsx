@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { WeatherIcon } from '@/components/weather-icon';
-import { Palette } from '@/theme';
+import { CARD_PADDING, Palette } from '@/theme';
 import { clockTime } from '@/units';
 
 const HEIGHT = 110;
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.card,
     borderRadius: 16,
     paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: CARD_PADDING,
     gap: 6,
   },
   labels: {

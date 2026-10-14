@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 
 import { useLocations } from '@/locations';
 import { useSettings } from '@/settings';
@@ -28,6 +29,12 @@ const ForecastContext = createContext<ForecastContextValue>({
   load: async () => {},
 });
 
+// Open-Meteo updates current conditions every 15 minutes, so refreshing more often finds nothing new.
+const REFRESH_MS = 15 * 60 * 1000;
+// How often to check whether a refresh is due. Checking rather than waiting the full interval keeps
+// refreshes on time after a manual refresh, a new place, or the app waking from sleep.
+const REFRESH_CHECK_MS = 60 * 1000;
+
 /** Loads and caches the weather for the place the app shows, for every screen to share. */
 export function ForecastProvider({ children }: { children: ReactNode }) {
   const { settings } = useSettings();
@@ -39,11 +46,15 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
   const [offline, setOffline] = useState(false);
   // The place whose weather on hand is fresh, so that a slow cache read cannot replace it.
   const freshKey = useRef<string | null>(null);
+  // When a load last started, successful or not, so that automatic refreshes do not retry a failing
+  // service any faster than they would refresh a working one.
+  const lastAttempt = useRef(0);
 
   const key = place ? placeKey(place) : null;
 
   const load = useCallback(async () => {
     if (!place) return;
+    lastAttempt.current = Date.now();
     setLoading(true);
     try {
       const fresh = await fetchWeather(place, settings.weatherApiKey);
@@ -85,6 +96,20 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
     };
     // load changes exactly when the position or the weather service does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load]);
+
+  // Refresh while the app is in view, and on coming back to it, once the weather is REFRESH_MS old.
+  // Nothing loads while the app is in the background.
+  useEffect(() => {
+    function refreshIfDue() {
+      if (AppState.currentState === 'active' && Date.now() - lastAttempt.current >= REFRESH_MS) load();
+    }
+    const timer = setInterval(refreshIfDue, REFRESH_CHECK_MS);
+    const subscription = AppState.addEventListener('change', refreshIfDue);
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+    };
   }, [load]);
 
   useEffect(() => {

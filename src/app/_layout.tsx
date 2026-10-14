@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 
-import { SplashOverlay } from '@/components/splash-overlay';
+import { SplashProvider } from '@/components/splash-overlay';
 import { ForecastProvider } from '@/forecast';
 import { LocationsProvider } from '@/locations';
 import { SettingsProvider } from '@/settings';
@@ -17,13 +17,14 @@ export default function RootLayout() {
       <LocationsProvider>
         <ForecastProvider>
           <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: Palette.background },
-            }}
-          />
-          <SplashOverlay />
+          <SplashProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: Palette.background },
+              }}
+            />
+          </SplashProvider>
         </ForecastProvider>
       </LocationsProvider>
     </SettingsProvider>

@@ -1,14 +1,16 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useState, type ComponentProps } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ForecastRow } from '@/components/forecast-row';
 import { HourlyForecast } from '@/components/hourly-forecast';
 import { HourlyPrecipitation } from '@/components/hourly-precipitation';
 import { Menu } from '@/components/menu';
+import { RefreshableScrollView } from '@/components/refreshable-scroll-view';
 import { SkyBackground } from '@/components/sky-background';
+import { useSplash } from '@/components/splash-overlay';
 import { StaleBanner } from '@/components/stale-banner';
 import { WeatherIcon, iconSizeWithin } from '@/components/weather-icon';
 import { useForecast, useNow } from '@/forecast';
@@ -78,11 +80,14 @@ export default function HomeScreen() {
   const now = useNow();
   const [refreshing, setRefreshing] = useState(false);
 
+  const { cover } = useSplash();
+
+  // A pull to reload brings the splash back over the screen while the weather loads.
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    await load();
+    await cover(load);
     setRefreshing(false);
-  }, [load]);
+  }, [cover, load]);
 
   const secondaryUnit = otherTemperatureUnit(settings.temperatureUnit);
   const { currentHour, today, yesterday, tomorrow } = weather
@@ -112,11 +117,12 @@ export default function HomeScreen() {
         )}
       </View>
 
-      <ScrollView
+      <RefreshableScrollView
         contentContainerStyle={styles.content}
         // The bar is drawn over the right padding, which makes that side look narrower.
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Palette.text} />}>
+        refreshing={refreshing}
+        onRefresh={refresh}>
         {weather ? (
           <>
             {error && <StaleBanner offline={offline} />}
@@ -207,7 +213,7 @@ export default function HomeScreen() {
             <ActivityIndicator size="large" color={Palette.text} />
           </View>
         )}
-      </ScrollView>
+      </RefreshableScrollView>
 
       <Menu visible={menuOpen} onClose={() => setMenuOpen(false)} />
     </SafeAreaView>

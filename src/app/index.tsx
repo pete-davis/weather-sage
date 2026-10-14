@@ -1,5 +1,4 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useState, type ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -9,6 +8,7 @@ import { ForecastRow } from '@/components/forecast-row';
 import { HourlyForecast } from '@/components/hourly-forecast';
 import { HourlyPrecipitation } from '@/components/hourly-precipitation';
 import { Menu } from '@/components/menu';
+import { SkyBackground } from '@/components/sky-background';
 import { StaleBanner } from '@/components/stale-banner';
 import { WeatherIcon, iconSizeWithin } from '@/components/weather-icon';
 import { useForecast, useNow } from '@/forecast';
@@ -25,7 +25,6 @@ const CURRENT_ICON_SIZE = 200;
 const MIN_ICON_COLUMN = 140;
 const HOURS_SHOWN = 24;
 const HOUR = 60 * 60 * 1000;
-const HEADER_ICON_SIZE = 36;
 
 type HeaderButtonProps = {
   icon: ComponentProps<typeof MaterialIcons>['name'];
@@ -75,9 +74,9 @@ export default function HomeScreen() {
   }, [load]);
 
   const secondaryUnit = otherTemperatureUnit(settings.temperatureUnit);
-  const { currentHour, today, yesterday } = weather
+  const { currentHour, today, yesterday, tomorrow } = weather
     ? localDates(weather, now)
-    : { currentHour: '', today: '', yesterday: '' };
+    : { currentHour: '', today: '', yesterday: '', tomorrow: '' };
   const hours = weather?.hours.filter((hour) => hour.time >= currentHour).slice(0, HOURS_SHOWN) ?? [];
   const days = weather?.days.filter((day) => day.date >= yesterday) ?? [];
   // The current conditions say what is falling only while they are recent; after that the
@@ -91,17 +90,11 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <SkyBackground />
       <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Menu"
-          hitSlop={8}
-          onPress={() => setMenuOpen(true)}
-          style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
-          <Image source={require('@/assets/images/header-icon.png')} style={styles.headerIcon} />
-        </Pressable>
+        <HeaderButton icon="menu" label="Menu" onPress={() => setMenuOpen(true)} />
         <Text style={styles.title} numberOfLines={1}>
-          Weather Sage
+          {place?.name ?? (locationFailed ? '' : 'Locating…')}
         </Text>
         <HeaderButton icon="my-location" label="Use my location" onPress={() => selectPlace(null)} />
       </View>
@@ -120,9 +113,6 @@ export default function HomeScreen() {
               onPress={() => router.push({ pathname: '/day/[date]', params: { date: today } })}
               style={({ pressed }) => [styles.current, pressed && styles.pressed]}>
               <View style={styles.currentText}>
-                <Text style={styles.place} numberOfLines={2}>
-                  {place?.name}
-                </Text>
                 <View style={styles.currentTemperature}>
                   <Text style={styles.currentValue}>
                     {temperatureValue(weather.temperature, settings.temperatureUnit)}
@@ -178,7 +168,7 @@ export default function HomeScreen() {
                   <ForecastRow
                     key={day.date}
                     day={day}
-                    label={day.date === today ? 'Today' : day.date === yesterday ? 'Yesterday' : undefined}
+                    label={({ [yesterday]: 'Yesterday', [today]: 'Today', [tomorrow]: 'Tomorrow' })[day.date]}
                     onPress={() => router.push({ pathname: '/day/[date]', params: { date: day.date } })}
                   />
                 ))}
@@ -227,21 +217,11 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 6,
   },
-  headerIcon: {
-    width: HEADER_ICON_SIZE,
-    height: HEADER_ICON_SIZE,
-    borderRadius: HEADER_ICON_SIZE * 0.22,
-  },
   title: {
     flex: 1,
     marginLeft: 6,
     color: Palette.text,
     fontSize: 20,
-  },
-  place: {
-    color: Palette.text,
-    fontSize: 22,
-    fontWeight: '500',
   },
   content: {
     width: '100%',

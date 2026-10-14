@@ -13,12 +13,19 @@ import {
 import { describeWeather, type DayForecast } from '@/weather';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const HEAVY_RAIN_MM = 20;
 
 // Parsed by hand so the forecast's local date is not shifted by the phone's time zone.
 export function weekdayOf(date: string) {
   const [year, month, day] = date.split('-').map(Number);
   return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+}
+
+// "2026-10-15" -> "Oct 15"
+function shortDate(date: string) {
+  const [, month, day] = date.split('-').map(Number);
+  return `${MONTHS[month - 1]} ${day}`;
 }
 
 type ForecastRowProps = {
@@ -41,9 +48,12 @@ export function ForecastRow({ day, label, onPress }: ForecastRowProps) {
       accessibilityLabel={`${label ?? weekdayOf(day.date)}, details`}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
-      <Text style={styles.weekday} numberOfLines={1} adjustsFontSizeToFit>
-        {label ?? weekdayOf(day.date)}
-      </Text>
+      <View style={styles.day}>
+        <Text style={styles.weekday} numberOfLines={1} adjustsFontSizeToFit>
+          {label ?? weekdayOf(day.date)}
+        </Text>
+        <Text style={styles.date}>{shortDate(day.date)}</Text>
+      </View>
 
       <View style={styles.condition}>
         <WeatherIcon name={condition.icon} size={30} color={condition.color} style={styles.conditionIcon} />
@@ -103,11 +113,17 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   // The four columns share the row by proportion, so they line up from row to row at any width.
-  weekday: {
+  day: {
     flex: 4,
+  },
+  weekday: {
     color: Palette.text,
     fontSize: 18,
     fontWeight: '500',
+  },
+  date: {
+    color: Palette.textMuted,
+    fontSize: 14,
   },
   condition: {
     flex: 1.5,

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <!-- viewport-fit=cover lets the sky run under an iPhone's status bar; the screens keep their
+         content clear of it with their safe-area insets. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+    <title>%WEB_TITLE%</title>
+
+    <!-- Installing to the home screen. These paths include the GitHub Pages base path,
+         experiments.baseUrl in app.json, which Expo adds only to the links it writes itself. -->
+    <link rel="manifest" href="/weather-sage/manifest.json" />
+    <meta name="theme-color" content="#064D84" />
+    <link rel="apple-touch-icon" href="/weather-sage/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Weather Sage" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+        /* Shown for a moment before the app draws: the middle of the sky, like the launch screen. */
+        background-color: #0450B0;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+
+    <!-- The service worker keeps the app's own files on the device so it opens without a
+         connection. Only on the published site: on the dev server it would serve stale files. -->
+    <script>
+      if ('serviceWorker' in navigator && location.pathname.startsWith('/weather-sage/')) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/weather-sage/sw.js', { scope: '/weather-sage/' });
+        });
+      }
+    </script>
+  </head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  </body>
+</html>

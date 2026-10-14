@@ -1,0 +1,17 @@
+{
+  "name": "Weather Sage",
+  "short_name": "Weather Sage",
+  "description": "The weather, plainly told.",
+  "id": "/weather-sage/",
+  "start_url": "/weather-sage/",
+  "scope": "/weather-sage/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0450B0",
+  "theme_color": "#064D84",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

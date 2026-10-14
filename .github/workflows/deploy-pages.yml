@@ -30,7 +30,8 @@ jobs:
 
       - run: npm ci
 
-      # Exports to dist/ under the /weather-sage base path and adds 404.html for direct links.
+      # Exports to dist/ under the /weather-sage base path, adds 404.html for direct links and builds
+      # the service worker that lets the app open offline.
       - run: npm run export:web
 
       - uses: actions/configure-pages@v6

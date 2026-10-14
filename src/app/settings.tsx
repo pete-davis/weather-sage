@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
@@ -66,16 +66,41 @@ const KEY_STATUS_TEXT: Record<Exclude<KeyStatus, null>, string> = {
   unreachable: 'Could not reach WeatherAPI to check the key. Check your connection.',
 };
 
+type ButtonProps = { label: string; onPress: () => void; primary?: boolean; disabled?: boolean };
+
+function Button({ label, onPress, primary, disabled }: ButtonProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.option,
+        styles.optionStacked,
+        primary && styles.optionSelected,
+        disabled && styles.optionDisabled,
+        pressed && styles.optionPressed,
+      ]}
+      onPress={onPress}>
+      <Text style={[styles.optionText, primary && styles.optionTextSelected]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+// Stands in for a saved key. Always the same length, so it gives away nothing about the key.
+const HIDDEN_KEY = '•'.repeat(16);
+
 function WeatherApiKey() {
   const { settings, updateSettings } = useSettings();
-  const [draft, setDraft] = useState(settings.weatherApiKey);
+  const [draft, setDraft] = useState('');
   const [status, setStatus] = useState<KeyStatus>(null);
+  const [shown, setShown] = useState(false);
   const key = draft.trim();
   const saved = settings.weatherApiKey;
 
   // A key is saved only once WeatherAPI accepts it, so a typo cannot leave the app without weather.
   async function save() {
-    if (!key || key === saved) return;
+    if (!key) return;
     setStatus('checking');
     try {
       if (!(await isWeatherApiKeyValid(key))) {
@@ -83,6 +108,8 @@ function WeatherApiKey() {
         return;
       }
       updateSettings({ weatherApiKey: key });
+      setDraft('');
+      setShown(false);
       setStatus(null);
     } catch {
       setStatus('unreachable');
@@ -90,7 +117,7 @@ function WeatherApiKey() {
   }
 
   function remove() {
-    setDraft('');
+    setShown(false);
     setStatus(null);
     updateSettings({ weatherApiKey: '' });
   }
@@ -98,58 +125,44 @@ function WeatherApiKey() {
   return (
     <View style={[styles.card, styles.cardStacked]}>
       <Text style={styles.cardTitle}>WeatherAPI key</Text>
-      <Text style={styles.cardDetail}>
-        {saved
-          ? 'Today and the next two days come from WeatherAPI with your key, including moonrise and moonset. Later days come from Open-Meteo.'
-          : 'The weather comes from Open-Meteo, which is free and needs no key. To use WeatherAPI for today and the next two days, and to see moonrise and moonset, add your own key from weatherapi.com.'}
-      </Text>
-      <TextInput
-        style={styles.input}
-        value={draft}
-        onChangeText={(text) => {
-          setDraft(text);
-          setStatus(null);
-        }}
-        onSubmitEditing={save}
-        placeholder="Paste your key"
-        placeholderTextColor={Palette.textMuted}
-        autoCapitalize="none"
-        autoCorrect={false}
-        spellCheck={false}
-        returnKeyType="done"
-      />
-      {status && (
-        <Text style={[styles.cardDetail, status !== 'checking' && styles.error]}>{KEY_STATUS_TEXT[status]}</Text>
+      {saved ? (
+        <>
+          <Text style={styles.cardDetail}>
+            Saved. Today and the next two days come from WeatherAPI; later days still come from Open-Meteo.
+          </Text>
+          <Text style={[styles.keyText, !shown && styles.keyHidden]} selectable={shown}>
+            {shown ? saved : HIDDEN_KEY}
+          </Text>
+          <View style={styles.options}>
+            <Button label={shown ? 'Hide key' : 'Show key'} onPress={() => setShown(!shown)} />
+            <Button label="Remove" onPress={remove} />
+          </View>
+        </>
+      ) : (
+        <>
+          <TextInput
+            style={styles.input}
+            value={draft}
+            onChangeText={(text) => {
+              setDraft(text);
+              setStatus(null);
+            }}
+            onSubmitEditing={save}
+            placeholder="Paste your WeatherAPI key"
+            placeholderTextColor={Palette.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            returnKeyType="done"
+          />
+          {status && (
+            <Text style={[styles.cardDetail, status !== 'checking' && styles.error]}>{KEY_STATUS_TEXT[status]}</Text>
+          )}
+          <View style={styles.options}>
+            <Button label="Save" primary disabled={!key || status === 'checking'} onPress={save} />
+          </View>
+        </>
       )}
-      <View style={styles.options}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !key || key === saved || status === 'checking' }}
-          disabled={!key || key === saved || status === 'checking'}
-          style={({ pressed }) => [
-            styles.option,
-            styles.optionStacked,
-            styles.optionSelected,
-            (!key || key === saved) && styles.optionDisabled,
-            pressed && styles.optionPressed,
-          ]}
-          onPress={save}>
-          <Text style={[styles.optionText, styles.optionTextSelected]}>{key && key === saved ? 'Saved' : 'Save'}</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !saved && !draft }}
-          disabled={!saved && !draft}
-          style={({ pressed }) => [
-            styles.option,
-            styles.optionStacked,
-            !saved && !draft && styles.optionDisabled,
-            pressed && styles.optionPressed,
-          ]}
-          onPress={remove}>
-          <Text style={styles.optionText}>Remove</Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -224,6 +237,20 @@ export default function SettingsScreen() {
         />
 
         <Text style={styles.section}>Weather service</Text>
+        <View style={[styles.card, styles.cardStacked]}>
+          <Text style={styles.cardDetail}>
+            Weather Sage uses Open-Meteo by default. It is free and needs no key.
+          </Text>
+          <Text style={styles.cardDetail}>
+            For more accurate forecasts, you can add your own API key for one of these weather services:
+          </Text>
+          <Text style={styles.serviceName}>
+            WeatherAPI <Text style={styles.cardDetail}>· weatherapi.com</Text>
+          </Text>
+          <Text style={styles.cardDetail}>
+            Free and paid plans. Covers today and the next two days, and adds moonrise and moonset.
+          </Text>
+        </View>
         <WeatherApiKey />
       </ScrollView>
     </SafeAreaView>
@@ -272,6 +299,20 @@ const styles = StyleSheet.create({
     color: Palette.textMuted,
     fontSize: 15,
     lineHeight: 21,
+  },
+  serviceName: {
+    color: Palette.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  keyText: {
+    color: Palette.text,
+    fontSize: 16,
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  },
+  keyHidden: {
+    color: Palette.textMuted,
+    letterSpacing: 2,
   },
   error: {
     color: '#FF9F2E',

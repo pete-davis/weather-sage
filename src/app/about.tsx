@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
+import { SkyBackground } from '@/components/sky-background';
 import { Palette } from '@/theme';
 
 const ICON_SIZE = 140;
@@ -20,22 +21,27 @@ const FEATURES: Feature[] = [
   {
     icon: 'block',
     title: 'No ads',
-    text: 'Nothing to scroll past and nothing trying to sell you something. Just the weather.',
+    text: 'Not one. Old Man Weather tried selling umbrellas once and didn’t care for it. Every bit of the screen is weather.',
   },
   {
-    icon: 'privacy-tip',
-    title: 'No data collection',
-    text: 'No accounts, no tracking and no analytics. Your locations and settings stay on your device, and your position is only used to look up the forecast.',
+    icon: 'visibility-off',
+    title: 'No snooping',
+    text: 'No accounts, no tracking, no analytics. Your places and settings stay on your device. Your position is only used to look up the forecast and the name of where you are, and the old man keeps no notes.',
   },
   {
-    icon: 'cloud-off',
-    title: 'Works offline',
-    text: 'The latest forecast is kept on your device, so you can still check it with a weak signal or none at all.',
+    icon: 'hiking',
+    title: 'Works off the grid',
+    text: 'The latest forecast is tucked away on your device, so you can still check it halfway up a mountain or anywhere else the signal gave up.',
   },
   {
-    icon: 'spa',
-    title: 'Simple',
-    text: 'One clear screen with what you need to plan your day, and more detail a tap away.',
+    icon: 'self-improvement',
+    title: 'No nonsense',
+    text: 'What it’s doing now, what it’ll do later, and the week ahead, all on one screen. More detail is a tap away for the curious. Everyone else can get on with their day.',
+  },
+  {
+    icon: 'savings',
+    title: 'Free as fresh air',
+    text: 'Forecasts come from Open-Meteo, with no sign-up and no fee. Fancy a second opinion? Add your own WeatherAPI key in Settings.',
   },
 ];
 
@@ -44,6 +50,7 @@ export default function AboutScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <SkyBackground />
       <ScreenHeader title="About" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -54,12 +61,17 @@ export default function AboutScreen() {
             accessibilityLabel="Weather Sage icon"
           />
           <Text style={styles.name}>Weather Sage</Text>
+          <Text style={styles.tagline}>The weather, plainly told.</Text>
           {version && <Text style={styles.version}>Version {version}</Text>}
         </View>
 
         <Text style={styles.intro}>
-          Weather Sage is a calm, honest weather app. It shows the conditions now, the next 24 hours and the week ahead
-          for wherever you are or the places you care about, without the clutter of mainstream weather apps.
+          Old Man Weather has been at this a long time. He doesn’t do breathless headlines, flashing banners or ten
+          different ways to say “cloudy”. He looks at the sky, tells you what it’s going to do, and gets back to his nap.
+        </Text>
+        <Text style={styles.intro}>
+          Weather Sage works the same way: the conditions now, the next 24 hours and the week ahead, for wherever you
+          are or the places you care about. Nothing you didn’t ask for.
         </Text>
 
         {FEATURES.map((feature) => (
@@ -105,6 +117,11 @@ const styles = StyleSheet.create({
     color: Palette.text,
     fontSize: 30,
     fontWeight: '500',
+  },
+  tagline: {
+    color: Palette.text,
+    fontSize: 17,
+    fontStyle: 'italic',
   },
   version: {
     color: Palette.textMuted,

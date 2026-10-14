@@ -1,25 +1,31 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState, type ComponentProps } from 'react';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useCallback, useState, type ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ForecastRow } from '@/components/forecast-row';
 import { HourlyForecast } from '@/components/hourly-forecast';
+import { HourlyPrecipitation } from '@/components/hourly-precipitation';
 import { Menu } from '@/components/menu';
+import { StaleBanner } from '@/components/stale-banner';
 import { WeatherIcon, iconSizeWithin } from '@/components/weather-icon';
+import { useForecast, useNow } from '@/forecast';
 import { useLocations } from '@/locations';
 import { useSettings } from '@/settings';
 import { Palette } from '@/theme';
 import { TEMPERATURE_LABELS, formatWind, otherTemperatureUnit, temperatureValue } from '@/units';
-import { describeWeather, fetchWeather, placeKey, type Weather } from '@/weather';
+import { TRACE_MM, describeWeather, isPrecipitation, localDates } from '@/weather';
 
 const MAX_CONTENT_WIDTH = 480;
 const SECTION_GAP = 20;
 // The current-weather icon is fitted into its column, up to this width and height.
 const CURRENT_ICON_SIZE = 200;
 const MIN_ICON_COLUMN = 140;
-// The daily data starts with yesterday; later days show their day name.
-const DAY_LABELS = ['Yesterday', 'Today'];
+const HOURS_SHOWN = 24;
+const HOUR = 60 * 60 * 1000;
+const HEADER_ICON_SIZE = 36;
 
 type HeaderButtonProps = {
   icon: ComponentProps<typeof MaterialIcons>['name'];
@@ -40,49 +46,27 @@ function HeaderButton({ icon, label, onPress }: HeaderButtonProps) {
   );
 }
 
-function minutesSince(time: number, now: number) {
-  return Math.max(0, Math.floor((now - time) / 60000));
+function plural(count: number, unit: string) {
+  return `${count} ${unit}${count === 1 ? '' : 's'} ago`;
+}
+
+// Cached weather can be days old, so the age moves up to hours and days.
+function ageLabel(time: number, now: number) {
+  const minutes = Math.max(0, Math.floor((now - time) / 60000));
+  if (minutes < 60) return plural(minutes, 'minute');
+  if (minutes < 48 * 60) return plural(Math.floor(minutes / 60), 'hour');
+  return plural(Math.floor(minutes / (24 * 60)), 'day');
 }
 
 export default function HomeScreen() {
   const { settings } = useSettings();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [iconColumnWidth, setIconColumnWidth] = useState(MIN_ICON_COLUMN);
   const { place, locationFailed, selectPlace } = useLocations();
-  const [weather, setWeather] = useState<Weather | null>(null);
-  const [updatedAt, setUpdatedAt] = useState(0);
-  const [now, setNow] = useState(Date.now());
-  const [error, setError] = useState<string | null>(null);
+  const { weather, updatedAt, loading, error, offline, load } = useForecast();
+  const now = useNow();
   const [refreshing, setRefreshing] = useState(false);
-
-  const key = place ? placeKey(place) : null;
-
-  const load = useCallback(async () => {
-    if (!place) return;
-    try {
-      setWeather(await fetchWeather(place));
-      setUpdatedAt(Date.now());
-      setNow(Date.now());
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load the weather');
-    }
-    // Reload only when the position changes, not on every new place object.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-
-  // Another place's weather must not linger under the new place's name.
-  useEffect(() => {
-    setWeather(null);
-    setError(null);
-    load();
-  }, [load]);
-
-  // Keeps "Last update" ticking.
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30000);
-    return () => clearInterval(timer);
-  }, []);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -90,20 +74,36 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [load]);
 
-  const minutes = minutesSince(updatedAt, now);
   const secondaryUnit = otherTemperatureUnit(settings.temperatureUnit);
+  const { currentHour, today, yesterday } = weather
+    ? localDates(weather, now)
+    : { currentHour: '', today: '', yesterday: '' };
+  const hours = weather?.hours.filter((hour) => hour.time >= currentHour).slice(0, HOURS_SHOWN) ?? [];
+  const days = weather?.days.filter((day) => day.date >= yesterday) ?? [];
+  // The current conditions say what is falling only while they are recent; after that the
+  // forecast for the current hour has to.
+  const precipitating =
+    hours.length > 0 &&
+    (hours[0].precipitationMm >= TRACE_MM ||
+      isPrecipitation(hours[0].code) ||
+      (weather !== null && now - updatedAt < HOUR && isPrecipitation(weather.code)));
   const condition = describeWeather(weather?.code ?? -1, weather?.isDay);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <HeaderButton icon="menu" label="Menu" onPress={() => setMenuOpen(true)} />
-        <Text style={styles.place} numberOfLines={1}>
-          {place?.name ?? 'Locating…'}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Menu"
+          hitSlop={8}
+          onPress={() => setMenuOpen(true)}
+          style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
+          <Image source={require('@/assets/images/header-icon.png')} style={styles.headerIcon} />
+        </Pressable>
+        <Text style={styles.title} numberOfLines={1}>
+          Weather Sage
         </Text>
-        <HeaderButton icon="search" label="Search for a place" />
         <HeaderButton icon="my-location" label="Use my location" onPress={() => selectPlace(null)} />
-        <HeaderButton icon="help" label="Help" />
       </View>
 
       <ScrollView
@@ -113,8 +113,16 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Palette.text} />}>
         {weather ? (
           <>
-            <View style={styles.current}>
+            {error && <StaleBanner offline={offline} />}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Today's details"
+              onPress={() => router.push({ pathname: '/day/[date]', params: { date: today } })}
+              style={({ pressed }) => [styles.current, pressed && styles.pressed]}>
               <View style={styles.currentText}>
+                <Text style={styles.place} numberOfLines={2}>
+                  {place?.name}
+                </Text>
                 <View style={styles.currentTemperature}>
                   <Text style={styles.currentValue}>
                     {temperatureValue(weather.temperature, settings.temperatureUnit)}
@@ -128,12 +136,15 @@ export default function HomeScreen() {
                 )}
                 <Text style={styles.currentDetail}>{condition.label}</Text>
                 <Text style={styles.currentDetail}>{formatWind(weather.windKmh, settings.windUnit)}</Text>
-                <Text style={styles.currentDetail}>
-                  Last update: {minutes} {minutes === 1 ? 'minute' : 'minutes'} ago
-                </Text>
-                {error && <Text style={styles.currentDetail}>Refresh failed: {error}</Text>}
+                <Text style={styles.currentDetail}>Last update: {ageLabel(updatedAt, now)}</Text>
+                {loading && !refreshing && (
+                  <View style={styles.loading}>
+                    <ActivityIndicator size="small" color={Palette.text} />
+                    <Text style={styles.currentDetail}>Loading fresh data…</Text>
+                  </View>
+                )}
                 {locationFailed && (
-                  <Text style={styles.currentDetail}>Location unavailable, showing {place?.name}</Text>
+                  <Text style={styles.currentDetail}>Location unavailable</Text>
                 )}
               </View>
               <View
@@ -146,18 +157,30 @@ export default function HomeScreen() {
                   style={styles.currentIcon}
                 />
               </View>
-            </View>
+            </Pressable>
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Hourly forecast</Text>
-              <HourlyForecast hours={weather.hours} />
+              <HourlyForecast hours={hours} />
             </View>
+
+            {precipitating && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Hourly Precipitation</Text>
+                <HourlyPrecipitation hours={hours} />
+              </View>
+            )}
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Daily Forecast</Text>
               <View style={styles.days}>
-                {weather.days.map((day, index) => (
-                  <ForecastRow key={day.date} day={day} label={DAY_LABELS[index]} />
+                {days.map((day) => (
+                  <ForecastRow
+                    key={day.date}
+                    day={day}
+                    label={day.date === today ? 'Today' : day.date === yesterday ? 'Yesterday' : undefined}
+                    onPress={() => router.push({ pathname: '/day/[date]', params: { date: day.date } })}
+                  />
                 ))}
               </View>
             </View>
@@ -167,6 +190,13 @@ export default function HomeScreen() {
             <Text style={styles.currentLine}>{error}</Text>
             <Pressable accessibilityRole="button" onPress={load} style={styles.retry}>
               <Text style={styles.retryText}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : !place && locationFailed ? (
+          <View style={styles.status}>
+            <Text style={styles.currentLine}>Your location is unavailable.</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/locations')} style={styles.retry}>
+              <Text style={styles.retryText}>Choose a location</Text>
             </Pressable>
           </View>
         ) : (
@@ -197,11 +227,21 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 6,
   },
-  place: {
+  headerIcon: {
+    width: HEADER_ICON_SIZE,
+    height: HEADER_ICON_SIZE,
+    borderRadius: HEADER_ICON_SIZE * 0.22,
+  },
+  title: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 6,
     color: Palette.text,
     fontSize: 20,
+  },
+  place: {
+    color: Palette.text,
+    fontSize: 22,
+    fontWeight: '500',
   },
   content: {
     width: '100%',
@@ -211,6 +251,9 @@ const styles = StyleSheet.create({
     gap: SECTION_GAP,
     padding: 16,
     paddingTop: SECTION_GAP,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   current: {
     flexDirection: 'row',
@@ -236,6 +279,11 @@ const styles = StyleSheet.create({
     color: Palette.text,
     fontSize: 14,
     lineHeight: 20,
+  },
+  loading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   currentTemperature: {
     flexDirection: 'row',

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { WeatherIcon } from '@/components/weather-icon';
 import { useSettings } from '@/settings';
@@ -16,7 +16,7 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 const HEAVY_RAIN_MM = 20;
 
 // Parsed by hand so the forecast's local date is not shifted by the phone's time zone.
-function weekdayOf(date: string) {
+export function weekdayOf(date: string) {
   const [year, month, day] = date.split('-').map(Number);
   return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
 }
@@ -25,9 +25,10 @@ type ForecastRowProps = {
   day: DayForecast;
   /** Shown instead of the day name, e.g. "Today". */
   label?: string;
+  onPress?: () => void;
 };
 
-export function ForecastRow({ day, label }: ForecastRowProps) {
+export function ForecastRow({ day, label, onPress }: ForecastRowProps) {
   const { settings } = useSettings();
   const secondaryUnit = otherTemperatureUnit(settings.temperatureUnit);
   const condition = describeWeather(day.code);
@@ -35,7 +36,11 @@ export function ForecastRow({ day, label }: ForecastRowProps) {
   const precipitation = formatPrecipitation(day.precipitationMm, settings.precipitationUnit);
 
   return (
-    <View style={styles.row}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label ?? weekdayOf(day.date)}, details`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
       <Text style={styles.weekday} numberOfLines={1} adjustsFontSizeToFit>
         {label ?? weekdayOf(day.date)}
       </Text>
@@ -80,7 +85,7 @@ export function ForecastRow({ day, label }: ForecastRowProps) {
           <Text style={styles.detailText}>{formatWind(day.windKmh, settings.windUnit)}</Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -93,6 +98,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 10,
     paddingHorizontal: 14,
+  },
+  rowPressed: {
+    opacity: 0.7,
   },
   // The four columns share the row by proportion, so they line up from row to row at any width.
   weekday: {

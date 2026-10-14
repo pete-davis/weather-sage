@@ -9,6 +9,9 @@ export const Palette = {
   cloud: '#D5DEE8',
   storm: '#C58BFF',
   heavyRain: '#C97A1E',
+  // Matches the expo-splash-screen backgroundColor in app.json, so the native splash hands
+  // over to the in-app one without a visible change.
+  splash: '#062A6E',
 };
 
 // Text colour for a temperature: white unless it is notably hot or cold.

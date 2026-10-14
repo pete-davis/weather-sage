@@ -5,17 +5,19 @@ import { ScreenHeader } from '@/components/screen-header';
 import { IMPERIAL, METRIC, useSettings, usesSystem, type Settings, type UnitSystem } from '@/settings';
 import { Palette } from '@/theme';
 
-type SegmentsProps<T extends string> = {
+type SegmentsProps<T extends string | number> = {
   title: string;
   options: { value: T; label: string }[];
   /** Null when none of the options is in effect. */
   selected: T | null;
   onSelect: (value: T) => void;
+  /** Puts the options on a row of their own under the title, for more than fit beside it. */
+  stacked?: boolean;
 };
 
-function Segments<T extends string>({ title, options, selected, onSelect }: SegmentsProps<T>) {
+function Segments<T extends string | number>({ title, options, selected, onSelect, stacked }: SegmentsProps<T>) {
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, stacked && styles.cardStacked]}>
       <Text style={styles.cardTitle}>{title}</Text>
       <View style={styles.options}>
         {options.map((option) => {
@@ -25,7 +27,7 @@ function Segments<T extends string>({ title, options, selected, onSelect }: Segm
               key={option.value}
               accessibilityRole="radio"
               accessibilityState={{ selected: isSelected }}
-              style={[styles.option, isSelected && styles.optionSelected]}
+              style={[styles.option, stacked && styles.optionStacked, isSelected && styles.optionSelected]}
               onPress={() => onSelect(option.value)}>
               <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{option.label}</Text>
             </Pressable>
@@ -108,6 +110,20 @@ export default function SettingsScreen() {
             { value: 'inch', label: 'in' },
           ]}
         />
+
+        <Text style={styles.section}>Cached weather</Text>
+        <Segments
+          title="Keep cached weather for"
+          stacked
+          options={[
+            { value: 1, label: '1 day' },
+            { value: 3, label: '3 days' },
+            { value: 7, label: '7 days' },
+            { value: 'never', label: 'Forever' },
+          ]}
+          selected={settings.cacheDays}
+          onSelect={(value) => updateSettings({ cacheDays: value })}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -142,6 +158,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
+  cardStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 10,
+  },
   cardTitle: {
     color: Palette.text,
     fontSize: 17,
@@ -158,6 +179,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Palette.textMuted,
+  },
+  optionStacked: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 4,
   },
   optionSelected: {
     backgroundColor: Palette.text,

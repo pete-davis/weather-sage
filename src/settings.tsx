@@ -8,6 +8,8 @@ export type Settings = {
   showBothTemperatures: boolean;
   windUnit: 'kmh' | 'mph';
   precipitationUnit: 'mm' | 'inch';
+  /** Cached weather older than this many days is deleted. */
+  cacheDays: 1 | 3 | 7 | 'never';
 };
 
 export type UnitSystem = Pick<Settings, 'temperatureUnit' | 'windUnit' | 'precipitationUnit'>;
@@ -23,7 +25,7 @@ export function usesSystem(settings: Settings, system: UnitSystem) {
   );
 }
 
-const DEFAULT_SETTINGS: Settings = { ...METRIC, showBothTemperatures: false };
+const DEFAULT_SETTINGS: Settings = { ...METRIC, showBothTemperatures: false, cacheDays: 3 };
 
 const STORAGE_KEY = 'settings';
 
@@ -39,6 +41,7 @@ const SettingsContext = createContext<SettingsContextValue>({
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
@@ -47,7 +50,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         // Unreadable saved settings: keep the defaults.
-      });
+      })
+      .then(() => setLoaded(true));
   }, []);
 
   const updateSettings = useCallback((changes: Partial<Settings>) => {
@@ -57,6 +61,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
+
+  // Nothing may act on the defaults before the saved settings are known, such as deleting cached weather.
+  if (!loaded) return null;
 
   return <SettingsContext.Provider value={{ settings, updateSettings }}>{children}</SettingsContext.Provider>;
 }

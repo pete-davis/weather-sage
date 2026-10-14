@@ -9,7 +9,7 @@ import { describeWeather, type HourForecast } from '@/weather';
 const RAIN_WORTH_MENTIONING = 30;
 
 // "2026-10-12T17:00" -> "5pm"
-function hourLabel(time: string) {
+export function hourLabel(time: string) {
   const hour = Number(time.slice(11, 13));
   return `${hour % 12 || 12}${hour < 12 ? 'am' : 'pm'}`;
 }
@@ -18,7 +18,7 @@ function isSnow(code: number) {
   return (code >= 71 && code <= 77) || code === 85 || code === 86;
 }
 
-function summarize(hours: HourForecast[], unit: Settings['temperatureUnit']) {
+function summarize(hours: HourForecast[], unit: Settings['temperatureUnit'], startsNow: boolean) {
   const counts = new Map<string, number>();
   for (const hour of hours) {
     // "Clear, cloudless sky" reads better in a sentence as just "Clear".
@@ -26,13 +26,14 @@ function summarize(hours: HourForecast[], unit: Settings['temperatureUnit']) {
     counts.set(label, (counts.get(label) ?? 0) + 1);
   }
   const [label, count] = [...counts].sort((a, b) => b[1] - a[1])[0];
-  const sky = count === hours.length ? `${label} for the next 24 hours.` : `Mostly ${label.toLowerCase()}.`;
+  const all = startsNow ? `for the next ${hours.length} hours` : 'all day';
+  const sky = count === hours.length ? `${label} ${all}.` : `Mostly ${label.toLowerCase()}.`;
 
   const wettest = Math.max(...hours.map((hour) => hour.precipitationChance));
   const firstWet = hours.find((hour) => hour.precipitationChance >= RAIN_WORTH_MENTIONING);
   const word = hours.some((hour) => isSnow(hour.code)) ? 'snow' : 'rain';
   const rain = firstWet
-    ? `Chance of ${word} from ${firstWet === hours[0] ? 'now' : hourLabel(firstWet.time)}, up to ${wettest}%.`
+    ? `Chance of ${word} from ${firstWet === hours[0] && startsNow ? 'now' : hourLabel(firstWet.time)}, up to ${wettest}%.`
     : `Little chance of ${word}.`;
 
   const temperatures = hours.map((hour) => temperatureValue(hour.temperature, unit));
@@ -41,7 +42,13 @@ function summarize(hours: HourForecast[], unit: Settings['temperatureUnit']) {
   return `${sky} ${rain} ${range}`;
 }
 
-export function HourlyForecast({ hours }: { hours: HourForecast[] }) {
+type HourlyForecastProps = {
+  hours: HourForecast[];
+  /** The first hour is the current one, labelled "Now"; otherwise the hours are a later day's. */
+  startsNow?: boolean;
+};
+
+export function HourlyForecast({ hours, startsNow = true }: HourlyForecastProps) {
   const { settings } = useSettings();
   const secondaryUnit = otherTemperatureUnit(settings.temperatureUnit);
 
@@ -49,14 +56,14 @@ export function HourlyForecast({ hours }: { hours: HourForecast[] }) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.summary}>{summarize(hours, settings.temperatureUnit)}</Text>
+      <Text style={styles.summary}>{summarize(hours, settings.temperatureUnit, startsNow)}</Text>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hours}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hours}>
         {hours.map((hour, index) => {
           const condition = describeWeather(hour.code, hour.isDay);
           return (
             <View key={hour.time} style={styles.hour}>
-              <Text style={styles.time}>{index === 0 ? 'Now' : hourLabel(hour.time)}</Text>
+              <Text style={styles.time}>{index === 0 && startsNow ? 'Now' : hourLabel(hour.time)}</Text>
               <WeatherIcon name={condition.icon} size={24} color={condition.color} style={styles.icon} />
               <Text style={styles.temperature}>{temperatureValue(hour.temperature, settings.temperatureUnit)}°</Text>
               {settings.showBothTemperatures && (
@@ -91,8 +98,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginBottom: 10,
   },
+  // Margin rather than content padding, so the hours clip at the inset instead of the card edge.
   hours: {
-    paddingHorizontal: 6,
+    marginHorizontal: 14,
   },
   hour: {
     width: 62,

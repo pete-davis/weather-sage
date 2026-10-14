@@ -5,6 +5,8 @@ import { findCurrentPlace } from '@/location';
 import { DEFAULT_PLACE, placeKey, type Place } from '@/weather';
 
 const STORAGE_KEY = 'locations';
+// The device's last known place, so the app can open on it before it has been located again.
+const CURRENT_PLACE_KEY = 'current-place';
 
 type Stored = {
   saved: Place[];
@@ -44,14 +46,19 @@ export function LocationsProvider({ children }: { children: ReactNode }) {
     setLocationFailed(!current);
     // Keep the last known place if a later attempt fails.
     setCurrentPlace((previous) => current ?? previous);
+    if (current) AsyncStorage.setItem(CURRENT_PLACE_KEY, JSON.stringify(current)).catch(() => {});
   }, []);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((value) => (value ? (JSON.parse(value) as Stored) : null))
-      .catch(() => null)
-      .then((loaded) => {
+    AsyncStorage.multiGet([STORAGE_KEY, CURRENT_PLACE_KEY])
+      .then(([[, locations], [, lastPlace]]) => ({
+        loaded: locations ? (JSON.parse(locations) as Stored) : null,
+        lastPlace: lastPlace ? (JSON.parse(lastPlace) as Place) : null,
+      }))
+      .catch(() => ({ loaded: null, lastPlace: null }))
+      .then(({ loaded, lastPlace }) => {
         const initial = loaded ?? { saved: [], selectedKey: null };
+        setCurrentPlace((previous) => previous ?? lastPlace);
         setStored(initial);
         if (initial.selectedKey === null) locate();
       });

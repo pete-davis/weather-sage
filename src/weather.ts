@@ -10,13 +10,19 @@ export type Place = {
   longitude: number;
 };
 
-export const DEFAULT_PLACE: Place = {
-  name: 'Basel',
-  region: 'Basel-Stadt',
-  country: 'Switzerland',
-  latitude: 47.5584,
-  longitude: 7.5733,
-};
+/**
+ * Shown when the device's location cannot be read. Only development has one, since simulators and
+ * browsers often have no location; a released app asks for a place instead of guessing.
+ */
+export const DEFAULT_PLACE: Place | null = __DEV__
+  ? {
+      name: 'Shawnee',
+      region: 'Kansas',
+      country: 'United States',
+      latitude: 39.04167,
+      longitude: -94.72024,
+    }
+  : null;
 
 /** Identifies a place by position, to about 100 m. */
 export function placeKey(place: Place) {
@@ -39,6 +45,12 @@ export type DayForecast = {
   windKmh: number;
   /** Direction the wind blows from, in degrees. */
   windFromDegrees: number;
+  /** Local times, as "YYYY-MM-DDTHH:MM". */
+  sunrise: string;
+  sunset: string;
+  /** Local times, as "HH:MM"; null when the moon does not rise or set that day, undefined when unknown. */
+  moonrise?: string | null;
+  moonset?: string | null;
 };
 
 export type HourForecast = {
@@ -50,6 +62,8 @@ export type HourForecast = {
   windKmh: number;
   /** Chance of precipitation, 0..100. */
   precipitationChance: number;
+  /** Rain plus melted snow and ice falling in the hour. */
+  precipitationMm: number;
 };
 
 export type Weather = {
@@ -57,15 +71,53 @@ export type Weather = {
   code: number;
   isDay: boolean;
   windKmh: number;
-  /** The next 24 hours, starting with the current hour. */
+  /** The place's offset from UTC, for telling which hour and day it is there now. */
+  utcOffsetSeconds: number;
+  /** Every forecast hour from the hour the weather was loaded, up to three days of them. */
   hours: HourForecast[];
-  /** Yesterday, today, then the days ahead. */
+  /** From the day before the weather was loaded, through the days ahead. */
   days: DayForecast[];
 };
 
+/** The time at the weather's place, as "YYYY-MM-DDTHH:MM". */
+export function localTime(weather: Weather, now: number) {
+  return new Date(now + weather.utcOffsetSeconds * 1000).toISOString().slice(0, 16);
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type LocalDates = {
+  /** The hour now at the weather's place, as "YYYY-MM-DDTHH:00". */
+  currentHour: string;
+  /** Dates at the weather's place, as "YYYY-MM-DD". */
+  today: string;
+  yesterday: string;
+  tomorrow: string;
+};
+
+// Cached weather may have been loaded on an earlier day, so what counts as now, today and
+// yesterday comes from the clock, not from where the data starts.
+export function localDates(weather: Weather, now: number): LocalDates {
+  const currentHour = `${localTime(weather, now).slice(0, 13)}:00`;
+  return {
+    currentHour,
+    today: currentHour.slice(0, 10),
+    yesterday: localTime(weather, now - DAY_MS).slice(0, 10),
+    tomorrow: localTime(weather, now + DAY_MS).slice(0, 10),
+  };
+}
+
+// Less than this in an hour is a trace, such as fog settling, and does not count as precipitation.
+export const TRACE_MM = 0.1;
+
+/** Whether a WMO code means something is falling: drizzle, rain, snow, hail and the like. */
+export function isPrecipitation(code: number) {
+  return code >= 51;
+}
+
 export type Condition = { label: string; icon: WeatherIconName; color: string };
 
-// WMO weather interpretation codes, as returned by Open-Meteo.
+// WMO weather interpretation codes.
 export function describeWeather(code: number, isDay = true): Condition {
   if (!isDay) {
     if (code === 0) return { label: 'Clear, cloudless sky', icon: 'night-clear', color: Palette.cloud };
@@ -92,6 +144,85 @@ export function describeWeather(code: number, isDay = true): Condition {
   return { label: 'Unknown', icon: 'na', color: Palette.cloud };
 }
 
+const API_URL = 'https://api.weatherapi.com/v1';
+// The free WeatherAPI plan forecasts today and the two days after it; Open-Meteo covers the rest.
+const FORECAST_DAYS = 3;
+
+// WeatherAPI condition codes, translated to the WMO codes the rest of the app speaks.
+const WMO_CODES: Record<number, number> = {
+  1000: 0, // Sunny or clear
+  1003: 2, // Partly cloudy
+  1006: 3, // Cloudy
+  1009: 3, // Overcast
+  1030: 45, // Mist
+  1063: 80, // Patchy rain
+  1066: 85, // Patchy snow
+  1069: 66, // Patchy sleet
+  1072: 56, // Patchy freezing drizzle
+  1087: 95, // Thundery outbreaks
+  1114: 71, // Blowing snow
+  1117: 75, // Blizzard
+  1135: 45, // Fog
+  1147: 48, // Freezing fog
+  1150: 51, // Patchy light drizzle
+  1153: 51, // Light drizzle
+  1168: 56, // Freezing drizzle
+  1171: 57, // Heavy freezing drizzle
+  1180: 61, // Patchy light rain
+  1183: 61, // Light rain
+  1186: 63, // Moderate rain at times
+  1189: 63, // Moderate rain
+  1192: 65, // Heavy rain at times
+  1195: 65, // Heavy rain
+  1198: 66, // Light freezing rain
+  1201: 67, // Moderate or heavy freezing rain
+  1204: 66, // Light sleet
+  1207: 67, // Moderate or heavy sleet
+  1210: 71, // Patchy light snow
+  1213: 71, // Light snow
+  1216: 73, // Patchy moderate snow
+  1219: 73, // Moderate snow
+  1222: 75, // Patchy heavy snow
+  1225: 75, // Heavy snow
+  1237: 77, // Ice pellets
+  1240: 80, // Light rain shower
+  1243: 81, // Moderate or heavy rain shower
+  1246: 82, // Torrential rain shower
+  1249: 66, // Light sleet showers
+  1252: 67, // Moderate or heavy sleet showers
+  1255: 85, // Light snow showers
+  1258: 86, // Moderate or heavy snow showers
+  1261: 77, // Light showers of ice pellets
+  1264: 77, // Moderate or heavy showers of ice pellets
+  1273: 95, // Patchy light rain with thunder
+  1276: 95, // Moderate or heavy rain with thunder
+  1279: 95, // Patchy light snow with thunder
+  1282: 95, // Moderate or heavy snow with thunder
+};
+
+function wmoCode(condition: { code: number }) {
+  return WMO_CODES[condition.code] ?? -1;
+}
+
+// WeatherAPI's "10:56 AM" -> "10:56"; its "No moonrise" and the like -> null.
+function astroTime(time: string): string | null {
+  const match = /^(\d{1,2}):(\d{2}) (AM|PM)$/.exec(time ?? '');
+  if (!match) return null;
+  const hour = (Number(match[1]) % 12) + (match[3] === 'PM' ? 12 : 0);
+  return `${String(hour).padStart(2, '0')}:${match[2]}`;
+}
+
+async function request(endpoint: string, place: Place, params: string): Promise<any> {
+  const response = await fetch(
+    `${API_URL}/${endpoint}.json?key=${process.env.EXPO_PUBLIC_WEATHERAPI_KEY}` +
+      `&q=${place.latitude},${place.longitude}&${params}`,
+  );
+  if (!response.ok) {
+    throw new Error(`Weather service returned ${response.status}`);
+  }
+  return response.json();
+}
+
 const DAILY_FIELDS = [
   'weather_code',
   'temperature_2m_max',
@@ -100,40 +231,26 @@ const DAILY_FIELDS = [
   'sunshine_duration',
   'wind_speed_10m_max',
   'wind_direction_10m_dominant',
+  'sunrise',
+  'sunset',
 ].join(',');
 
-export async function fetchWeather(place: Place): Promise<Weather> {
-  const url =
+/** Yesterday, today and the six days after, from Open-Meteo. */
+async function fetchExtendedDays(place: Place): Promise<Pick<Weather, 'days' | 'utcOffsetSeconds'>> {
+  const response = await fetch(
     'https://api.open-meteo.com/v1/forecast' +
-    `?latitude=${place.latitude}&longitude=${place.longitude}` +
-    '&current=temperature_2m,weather_code,is_day,wind_speed_10m' +
-    '&hourly=temperature_2m,weather_code,is_day,wind_speed_10m,precipitation_probability' +
-    '&forecast_hours=24' +
-    `&daily=${DAILY_FIELDS}` +
-    // past_days adds yesterday in front of today in the daily data only.
-    '&timezone=auto&forecast_days=7&past_days=1';
-
-  const response = await fetch(url);
+      `?latitude=${place.latitude}&longitude=${place.longitude}` +
+      `&daily=${DAILY_FIELDS}` +
+      '&timezone=auto&forecast_days=7&past_days=1',
+  );
   if (!response.ok) {
     throw new Error(`Weather service returned ${response.status}`);
   }
   const data = await response.json();
   const daily = data.daily;
-  const hourly = data.hourly;
 
   return {
-    temperature: data.current.temperature_2m,
-    code: data.current.weather_code,
-    isDay: data.current.is_day === 1,
-    windKmh: data.current.wind_speed_10m,
-    hours: hourly.time.map((time: string, i: number) => ({
-      time,
-      code: hourly.weather_code[i],
-      isDay: hourly.is_day[i] === 1,
-      temperature: hourly.temperature_2m[i],
-      windKmh: hourly.wind_speed_10m[i],
-      precipitationChance: hourly.precipitation_probability[i] ?? 0,
-    })),
+    utcOffsetSeconds: data.utc_offset_seconds,
     days: daily.time.map((date: string, i: number) => ({
       date,
       code: daily.weather_code[i],
@@ -143,7 +260,54 @@ export async function fetchWeather(place: Place): Promise<Weather> {
       sunshineHours: (daily.sunshine_duration[i] ?? 0) / 3600,
       windKmh: daily.wind_speed_10m_max[i],
       windFromDegrees: daily.wind_direction_10m_dominant[i],
+      sunrise: daily.sunrise[i],
+      sunset: daily.sunset[i],
     })),
+  };
+}
+
+export async function fetchWeather(place: Place): Promise<Weather> {
+  const [data, extended] = await Promise.all([
+    request('forecast', place, `days=${FORECAST_DAYS}&aqi=no&alerts=no`),
+    fetchExtendedDays(place),
+  ]);
+  const forecastDays = data.forecast.forecastday;
+
+  const currentHour = data.location.localtime_epoch - 3600;
+  return {
+    temperature: data.current.temp_c,
+    code: wmoCode(data.current.condition),
+    isDay: data.current.is_day === 1,
+    windKmh: data.current.wind_kph,
+    utcOffsetSeconds: extended.utcOffsetSeconds,
+    hours: forecastDays
+      .flatMap((forecastDay: any) => forecastDay.hour)
+      .filter((hour: any) => hour.time_epoch > currentHour)
+      .map((hour: any) => ({
+        time: hour.time.replace(' ', 'T'),
+        code: wmoCode(hour.condition),
+        isDay: hour.is_day === 1,
+        temperature: hour.temp_c,
+        windKmh: hour.wind_kph,
+        precipitationChance: Math.max(hour.chance_of_rain ?? 0, hour.chance_of_snow ?? 0),
+        precipitationMm: hour.precip_mm ?? 0,
+      })),
+    // WeatherAPI's days replace Open-Meteo's conditions, temperatures and precipitation;
+    // wind and sunshine stay Open-Meteo's on every day.
+    days: extended.days.map((day) => {
+      const forecastDay = forecastDays.find((other: any) => other.date === day.date);
+      if (!forecastDay) return day;
+      const near = forecastDay.day;
+      return {
+        ...day,
+        code: wmoCode(near.condition),
+        high: near.maxtemp_c,
+        low: near.mintemp_c,
+        precipitationMm: near.totalprecip_mm ?? 0,
+        moonrise: astroTime(forecastDay.astro.moonrise),
+        moonset: astroTime(forecastDay.astro.moonset),
+      };
+    }),
   };
 }
 
@@ -157,24 +321,14 @@ export type PlaceSummary = {
 
 /** Current conditions and today's high and low, for the locations list. */
 export async function fetchPlaceSummary(place: Place): Promise<PlaceSummary> {
-  const url =
-    'https://api.open-meteo.com/v1/forecast' +
-    `?latitude=${place.latitude}&longitude=${place.longitude}` +
-    '&current=temperature_2m,weather_code,is_day' +
-    '&daily=temperature_2m_max,temperature_2m_min' +
-    '&timezone=auto&forecast_days=1';
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Weather service returned ${response.status}`);
-  }
-  const data = await response.json();
+  const data = await request('forecast', place, 'days=1&aqi=no&alerts=no');
+  const today = data.forecast.forecastday[0].day;
 
   return {
-    temperature: data.current.temperature_2m,
-    code: data.current.weather_code,
+    temperature: data.current.temp_c,
+    code: wmoCode(data.current.condition),
     isDay: data.current.is_day === 1,
-    high: data.daily.temperature_2m_max[0],
-    low: data.daily.temperature_2m_min[0],
+    high: today.maxtemp_c,
+    low: today.mintemp_c,
   };
 }

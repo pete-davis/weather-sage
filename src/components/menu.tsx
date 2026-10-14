@@ -10,6 +10,8 @@ const HEADER_HEIGHT = 54;
 const ITEMS = [
   { label: 'Locations', route: '/locations' },
   { label: 'Settings', route: '/settings' },
+  { label: 'Help', route: '/help' },
+  { label: 'About', route: '/about' },
 ] as const;
 
 export function Menu({ visible, onClose }: { visible: boolean; onClose: () => void }) {

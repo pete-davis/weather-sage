@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
@@ -11,9 +11,22 @@ type Topic = {
   icon: ComponentProps<typeof MaterialIcons>['name'];
   title: string;
   points: string[];
+  /** Only for the web app, opened in a browser: an installed phone app has nothing to install. */
+  webOnly?: boolean;
 };
 
 const TOPICS: Topic[] = [
+  {
+    icon: 'install-mobile',
+    title: 'Install on your phone',
+    webOnly: true,
+    points: [
+      'Weather Sage can sit on your home screen like any other app, open full screen, and work without a connection.',
+      'Android: in Chrome, tap the ⋮ menu, then Install app (or Add to Home screen).',
+      'iPhone and iPad: in Safari, tap the Share button (the square with an arrow pointing up), scroll down and tap Add to Home Screen. On newer versions it may be under More first. Keep Open as Web App switched on, then tap Add.',
+      'Then open Weather Sage from its icon on your home screen.',
+    ],
+  },
   {
     icon: 'home',
     title: 'Home screen',
@@ -76,7 +89,7 @@ export default function HelpScreen() {
       <ScreenHeader title="Help" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {TOPICS.map((topic) => (
+        {TOPICS.filter((topic) => !topic.webOnly || Platform.OS === 'web').map((topic) => (
           <View key={topic.title} style={styles.card}>
             <View style={styles.cardHeader}>
               <MaterialIcons name={topic.icon} size={24} color={Palette.rain} />

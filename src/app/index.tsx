@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ForecastRow } from '@/components/forecast-row';
 import { HourlyForecast } from '@/components/hourly-forecast';
 import { HourlyPrecipitation } from '@/components/hourly-precipitation';
+import { InstallHint } from '@/components/install-hint';
 import { Menu } from '@/components/menu';
 import { RefreshableScrollView } from '@/components/refreshable-scroll-view';
 import { SkyBackground } from '@/components/sky-background';
@@ -123,6 +124,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshing={refreshing}
         onRefresh={refresh}>
+        <InstallHint />
         {weather ? (
           <>
             {error && <StaleBanner offline={offline} />}

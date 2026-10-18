@@ -22,6 +22,8 @@ type LocationsContextValue = Stored & {
   /** The device's location was asked for and could not be read. */
   locationFailed: boolean;
   addPlace: (place: Place) => void;
+  /** Removes saved places by key; if the chosen one goes, the home screen follows the device again. */
+  removePlaces: (keys: string[]) => void;
   /** Pass null to follow the device's location. */
   selectPlace: (place: Place | null) => void;
 };
@@ -33,6 +35,7 @@ const LocationsContext = createContext<LocationsContextValue>({
   currentPlace: null,
   locationFailed: false,
   addPlace: () => {},
+  removePlaces: () => {},
   selectPlace: () => {},
 });
 
@@ -83,6 +86,20 @@ export function LocationsProvider({ children }: { children: ReactNode }) {
     [update],
   );
 
+  const storedSelectedKey = stored?.selectedKey ?? null;
+  const removePlaces = useCallback(
+    (keys: string[]) => {
+      const removing = new Set(keys);
+      const losesSelected = storedSelectedKey !== null && removing.has(storedSelectedKey);
+      update((previous) => ({
+        saved: previous.saved.filter((other) => !removing.has(placeKey(other))),
+        selectedKey: previous.selectedKey && removing.has(previous.selectedKey) ? null : previous.selectedKey,
+      }));
+      if (losesSelected) locate();
+    },
+    [storedSelectedKey, update, locate],
+  );
+
   const selectPlace = useCallback(
     (place: Place | null) => {
       update((previous) => ({ ...previous, selectedKey: place ? placeKey(place) : null }));
@@ -104,6 +121,7 @@ export function LocationsProvider({ children }: { children: ReactNode }) {
         currentPlace,
         locationFailed: !selected && locationFailed,
         addPlace,
+        removePlaces,
         selectPlace,
       }}>
       {children}

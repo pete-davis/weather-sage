@@ -11,8 +11,8 @@ type Action = {
   onPress: () => void;
 };
 
-/** Header bar for screens reached from the home screen: back arrow, title, optional button on the right. */
-export function ScreenHeader({ title, action }: { title: string; action?: Action }) {
+/** Header bar for screens reached from the home screen: back arrow, title, optional buttons on the right. */
+export function ScreenHeader({ title, actions = [] }: { title: string; actions?: Action[] }) {
   const router = useRouter();
 
   return (
@@ -28,8 +28,9 @@ export function ScreenHeader({ title, action }: { title: string; action?: Action
       <Text style={styles.title} numberOfLines={1}>
         {title}
       </Text>
-      {action && (
+      {actions.map((action) => (
         <Pressable
+          key={action.label}
           accessibilityRole="button"
           accessibilityLabel={action.label}
           hitSlop={8}
@@ -37,7 +38,7 @@ export function ScreenHeader({ title, action }: { title: string; action?: Action
           onPress={action.onPress}>
           <MaterialIcons name={action.icon} size={28} color={Palette.text} />
         </Pressable>
-      )}
+      ))}
     </View>
   );
 }

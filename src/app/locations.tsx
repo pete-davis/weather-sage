@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -25,10 +26,12 @@ type LocationRowProps = {
   /** Small line above the name, e.g. "Current location". */
   caption?: string;
   selected: boolean;
+  /** Ticked or not while picking places to remove; undefined outside that mode. */
+  checked?: boolean;
   onPress: () => void;
 };
 
-function LocationRow({ place, caption, selected, onPress }: LocationRowProps) {
+function LocationRow({ place, caption, selected, checked, onPress }: LocationRowProps) {
   const { settings } = useSettings();
   const [summary, setSummary] = useState<PlaceSummary | null>(null);
   const [failed, setFailed] = useState(false);
@@ -55,9 +58,22 @@ function LocationRow({ place, caption, selected, onPress }: LocationRowProps) {
 
   return (
     <Pressable
-      accessibilityRole="button"
-      style={({ pressed }) => [styles.row, selected && styles.rowSelected, pressed && styles.rowPressed]}
+      accessibilityRole={checked === undefined ? 'button' : 'checkbox'}
+      accessibilityState={checked === undefined ? undefined : { checked }}
+      style={({ pressed }) => [
+        styles.row,
+        selected && checked === undefined && styles.rowSelected,
+        checked && styles.rowChecked,
+        pressed && styles.rowPressed,
+      ]}
       onPress={onPress}>
+      {checked !== undefined && (
+        <MaterialIcons
+          name={checked ? 'check-circle' : 'radio-button-unchecked'}
+          size={26}
+          color={checked ? Palette.rain : Palette.textMuted}
+        />
+      )}
       <View style={styles.names}>
         {caption && <Text style={styles.caption}>{caption}</Text>}
         <Text style={styles.name} numberOfLines={1}>
@@ -95,38 +111,100 @@ function LocationRow({ place, caption, selected, onPress }: LocationRowProps) {
 
 export default function LocationsScreen() {
   const router = useRouter();
-  const { saved, selectedKey, currentPlace, selectPlace } = useLocations();
+  const { saved, selectedKey, currentPlace, selectPlace, removePlaces } = useLocations();
+  // Keys ticked for removal, or null when not editing.
+  const [checked, setChecked] = useState<Set<string> | null>(null);
+  const editing = checked !== null;
 
   const choose = (place: Place | null) => {
     selectPlace(place);
     router.dismissTo('/');
   };
 
+  const toggle = (key: string) =>
+    setChecked((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const allChecked = editing && saved.length > 0 && checked.size === saved.length;
+
+  const remove = () => {
+    if (!checked?.size) return;
+    removePlaces([...checked]);
+    setChecked(null);
+  };
+
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right', 'bottom']}>
       <SkyBackground />
       <ScreenHeader
-        title="Locations"
-        action={{ icon: 'add', label: 'Add a location', onPress: () => router.push('/add-location') }}
+        title={editing ? 'Remove locations' : 'Locations'}
+        actions={
+          editing
+            ? [{ icon: 'close', label: 'Stop removing', onPress: () => setChecked(null) }]
+            : [
+                ...(saved.length > 0
+                  ? [{ icon: 'delete-outline' as const, label: 'Remove locations', onPress: () => setChecked(new Set()) }]
+                  : []),
+                { icon: 'add', label: 'Add a location', onPress: () => router.push('/add-location') },
+              ]
+        }
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <LocationRow
-          place={currentPlace}
-          caption={currentPlace ? 'Current location' : undefined}
-          selected={selectedKey === null}
-          onPress={() => choose(null)}
-        />
-        {saved.map((place) => (
+        {editing ? (
+          <Text style={styles.hint}>Tap the locations to remove.</Text>
+        ) : (
           <LocationRow
-            key={placeKey(place)}
-            place={place}
-            selected={selectedKey === placeKey(place)}
-            onPress={() => choose(place)}
+            place={currentPlace}
+            caption={currentPlace ? 'Current location' : undefined}
+            selected={selectedKey === null}
+            onPress={() => choose(null)}
           />
-        ))}
+        )}
+        {saved.map((place) => {
+          const key = placeKey(place);
+          return (
+            <LocationRow
+              key={key}
+              place={place}
+              selected={selectedKey === key}
+              checked={editing ? checked.has(key) : undefined}
+              onPress={() => (editing ? toggle(key) : choose(place))}
+            />
+          );
+        })}
         {saved.length === 0 && <Text style={styles.hint}>Tap + to add a location.</Text>}
       </ScrollView>
+
+      {editing && (
+        <View style={styles.bar}>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.barButton, pressed && styles.rowPressed]}
+            onPress={() => setChecked(allChecked ? new Set() : new Set(saved.map(placeKey)))}>
+            <Text style={styles.barText}>{allChecked ? 'Select none' : 'Select all'}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !checked.size }}
+            disabled={!checked.size}
+            style={({ pressed }) => [
+              styles.barButton,
+              styles.removeButton,
+              !checked.size && styles.barButtonDisabled,
+              pressed && styles.rowPressed,
+            ]}
+            onPress={remove}>
+            <Text style={[styles.barText, styles.removeText]}>
+              {checked.size ? `Remove ${checked.size}` : 'Remove'}
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -158,6 +236,9 @@ const styles = StyleSheet.create({
   },
   rowSelected: {
     borderColor: Palette.rain,
+  },
+  rowChecked: {
+    borderColor: Palette.textMuted,
   },
   rowPressed: {
     opacity: 0.8,
@@ -204,6 +285,36 @@ const styles = StyleSheet.create({
   },
   rangeText: {
     fontSize: 15,
+    fontWeight: '700',
+  },
+  bar: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  barButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: Palette.card,
+  },
+  barButtonDisabled: {
+    opacity: 0.4,
+  },
+  removeButton: {
+    backgroundColor: '#C62828',
+  },
+  barText: {
+    color: Palette.text,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  removeText: {
     fontWeight: '700',
   },
   hint: {

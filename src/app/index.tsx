@@ -217,7 +217,7 @@ export default function HomeScreen() {
         )}
       </RefreshableScrollView>
 
-      <Menu visible={menuOpen} onClose={() => setMenuOpen(false)} />
+      {menuOpen && <Menu onClose={() => setMenuOpen(false)} />}
     </SafeAreaView>
   );
 }

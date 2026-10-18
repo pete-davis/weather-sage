@@ -40,11 +40,31 @@
     </style>
 
     <!-- The service worker keeps the app's own files on the device so it opens without a
-         connection. Only on the published site: on the dev server it would serve stale files. -->
+         connection. Only on the published site: on the dev server it would serve stale files.
+         When a new deploy's service worker takes over, the page reloads once so the update shows
+         now rather than on the next launch. The first install also takes over, but there is nothing
+         newer to show then, so it does not reload. -->
     <script>
       if ('serviceWorker' in navigator && location.pathname.startsWith('/weather-sage/')) {
+        var hadController = !!navigator.serviceWorker.controller;
+        var reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (!hadController) {
+            hadController = true;
+            return;
+          }
+          if (reloading) return;
+          reloading = true;
+          location.reload();
+        });
         window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/weather-sage/sw.js', { scope: '/weather-sage/' });
+          navigator.serviceWorker.register('/weather-sage/sw.js', { scope: '/weather-sage/' }).then(function (registration) {
+            // An installed app brought back from the background is not a new launch, so the browser
+            // does not look for an update on its own; look whenever it comes back into view.
+            document.addEventListener('visibilitychange', function () {
+              if (document.visibilityState === 'visible') registration.update().catch(function () {});
+            });
+          });
         });
       }
     </script>
